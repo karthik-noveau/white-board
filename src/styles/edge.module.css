@@ -1,0 +1,5 @@
+.edgeLine {
+  stroke: #666666;
+  stroke-width: 2;
+  marker-end: url(#arrowhead); /* Optional: Add an arrowhead */
+}

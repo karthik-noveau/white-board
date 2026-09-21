@@ -1,3 +1,60 @@
-body {
-  margin: 0;
+:root {
+  /* One palette for the public site, workspace, board tools, and dialogs. */
+  --nova-ink: #151621;
+  --nova-text: #42495b;
+  --nova-muted: #5f687b;
+  --nova-primary: #6436dc;
+  --nova-primary-hover: #5425bc;
+  --nova-primary-soft: #eee7ff;
+  --nova-primary-border: #b49aef;
+  --nova-brand-gradient: linear-gradient(115deg, #8733ce, #6436dc 50%, #3e5fd0);
+  --nova-brand-hover: linear-gradient(115deg, #7528b8, #5425bc 50%, #3151bb);
+  --nova-surface: #ffffff;
+  --nova-page: #f7f8fc;
+  --nova-surface-tint: #f3f0fc;
+  --nova-border: #d7dce7;
+  --nova-border-strong: #c5ccda;
+  --nova-success: #18764d;
+  --nova-danger: #b42342;
+  --nova-danger-soft: #fff0f3;
+  --nova-focus-ring: #6436dc26;
+  --nova-scrim: #15162166;
+  --nova-motion-fast: 140ms;
+  --nova-motion-enter: 220ms;
+  --nova-motion-exit: 160ms;
+  --nova-motion-page: 240ms;
+  --nova-motion-ease: cubic-bezier(.2, .8, .2, 1);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--nova-ink);
+  background: var(--nova-surface);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
+
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; margin: 0; }
+button, input, textarea, select { font: inherit; }
+button { color: inherit; }
+.pageView { height: 100%; min-height: 100%; }
+.motionHost { display: contents; }
+:where(button, a, summary) { transition: background-color var(--nova-motion-fast), color var(--nova-motion-fast), border-color var(--nova-motion-fast), box-shadow var(--nova-motion-fast), opacity var(--nova-motion-fast); }
+dialog[data-motion-state="enter"]::backdrop { animation: nova-fade-in var(--nova-motion-enter) var(--nova-motion-ease) both; }
+dialog[data-motion-state="exit"]::backdrop { animation: nova-fade-out var(--nova-motion-exit) var(--nova-motion-ease) both; }
+@keyframes nova-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nova-fade-out { from { opacity: 1; } to { opacity: 0; } }
+::selection { background: var(--nova-primary-soft); }
+.appLoading{height:100%;display:flex;align-items:center;justify-content:center;gap:12px;background:var(--nova-page);color:var(--nova-text)}.appLoading span{width:36px;height:36px;display:grid;place-items:center;border-radius:11px;background:var(--nova-brand-gradient);color:#fff;box-shadow:0 8px 22px rgba(83,53,169,.22)}.appLoading b{font-size:12px}
+
+.routeNotice{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;background:var(--nova-page);text-align:center;color:var(--nova-ink)}.routeMark{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:var(--nova-brand-gradient);color:#fff;font-size:24px;text-decoration:none}.routeNotice h1{margin:24px 0 10px;font-size:28px;letter-spacing:-.035em}.routeNotice p{max-width:430px;margin:0;color:var(--nova-muted);font-size:14px;line-height:1.7}.routeAction{display:inline-flex;gap:14px;align-items:center;margin-top:26px;padding:12px 18px;border-radius:10px;background:var(--nova-primary);color:#fff;font-size:13px;font-weight:600;text-decoration:none}.routeAction:hover{background:var(--nova-primary-hover)}.routeAction:focus-visible,.routeMark:focus-visible{outline:2px solid var(--nova-primary);outline-offset:4px}
+
+:root{--app-height:100dvh;--app-top:0px}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:80px}
+body{overflow-x:clip}
+button,a,input,textarea,select{-webkit-tap-highlight-color:transparent}
+button,a{touch-action:manipulation}
+button:focus-visible,a:focus-visible{outline:2px solid var(--nova-primary);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-delay:0ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0ms!important}}
+
+input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--nova-primary);outline-offset:2px}
+@media(max-width:600px){.routeNotice h1{font-size:clamp(24px,7vw,30px)}.routeAction{min-height:46px}.appLoading{padding:24px}.appLoading b{font-size:14px}}

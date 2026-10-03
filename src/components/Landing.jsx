@@ -264,7 +264,7 @@ export default function Landing({ onCreate }) {
       </section>
 
       <section className={styles.templatesSection} id="templates" aria-labelledby="templates-title">
-        <SectionHeading eyebrow="A HEAD START ON WHAT’S NEXT" title={<span id="templates-title">Skip the blank canvas.</span>} description="Start with a little structure. Make it completely yours."><Link className={styles.textLink} to="/projects">All {templates.length} templates <Arrow/></Link></SectionHeading>
+        <SectionHeading eyebrow="A HEAD START ON WHAT’S NEXT" title={<span id="templates-title">Skip the blank canvas.</span>} description="Start with a little structure. Make it completely yours."><Link className={styles.textLink} to="/projects?templates=1">All {templates.length} templates <Arrow/></Link></SectionHeading>
         <div className={styles.templateGrid}>{examples.map((example, index) => {
           const template = templates.find(item => item.id === example.id);
           return <button key={example.id} className={styles.templateCard} data-reveal="" onClick={() => onCreate(template)} aria-label={`Start with ${template.name}`}><span className={`${styles.templateArt} ${styles[`templateArt${index}`]}`}><PreviewMap template={template}/><span className={styles.templateTag}><BoardIcon name={example.icon} size={13}/>{index === 0 ? "Planning" : index === 1 ? "Ideation" : "Learning"}</span></span><span className={styles.templateCopy}><span className={styles.templateTitle}>{template.name}<Arrow diagonal/></span><span className={styles.templateDescription}>{example.description}</span></span></button>;

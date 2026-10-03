@@ -3,16 +3,17 @@ import { Link, NavLink, useLocation, useParams, useSearchParams } from "react-ro
 import { boardPath, folderPath } from "../lib/routes";
 import usePageTitle from "../lib/usePageTitle";
 import useDeleteConfirmation from "../lib/useDeleteConfirmation";
-import { templates } from "../data/templates";
+import { featuredTemplateIds, templates } from "../data/templates";
 import { getStorageEstimate } from "../lib/localWorkspace";
 import Icon from "./BoardIcon";
 import MotionPresence from "./MotionPresence";
 import BoardPreview from "./BoardPreview";
+import TemplateLibrary from "./TemplateLibrary";
 import styles from "../styles/home.module.css";
 
 function NovaMark() { return <span className={styles.mark}><Icon name="spark" size={24}/></span>; }
 
-function Dialog({ title, description, onClose, children, wide = false }) {
+function Dialog({ title, description, onClose, children }) {
   const ref = useRef(null), titleId = useId();
   useLayoutEffect(() => {
     const dialog = ref.current, previousFocus = document.activeElement;
@@ -23,7 +24,7 @@ function Dialog({ title, description, onClose, children, wide = false }) {
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
   }, []);
-  return <dialog ref={ref} className={`${styles.dialog} ${wide ? styles.wideDialog : ""}`} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }} onClose={event => { if (!event.currentTarget.open) onClose(); }} onClick={event => { if (event.target === event.currentTarget) { const box = event.currentTarget.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) onClose(); } }}>
+  return <dialog ref={ref} className={styles.dialog} aria-labelledby={titleId} onCancel={event => { event.preventDefault(); onClose(); }} onClose={event => { if (!event.currentTarget.open) onClose(); }} onClick={event => { if (event.target === event.currentTarget) { const box = event.currentTarget.getBoundingClientRect(); if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) onClose(); } }}>
     <header><div><h2 id={titleId}>{title}</h2>{description && <p>{description}</p>}</div><button className={styles.iconButton} onClick={onClose} aria-label="Close dialog"><Icon name="close"/></button></header>
     {children}
   </dialog>;
@@ -60,8 +61,8 @@ function ProjectCard({ project, returnTo, onDelete, onDuplicate, onRename, onFav
   }, [menuOpen]);
   const action = callback => { setMenuOpen(false); triggerRef.current?.focus(); callback(); };
   const navigation = { to: boardPath(project.id), state: { from: returnTo } };
-  const preview = <><BoardPreview board={project.board} title={project.title} accent={project.accent}/><span className={styles.openHint}>{trash ? "Restore project" : "Open board"}<Icon name={trash ? "history" : "forward"} size={15}/></span></>;
-  return <article className={`${styles.projectCard} ${menuOpen ? styles.cardMenuOpen : ""}`}>
+  const preview = <><span className={styles.previewLabel}><Icon name="layout" size={13}/>Mind map</span><BoardPreview board={project.board} title={project.title} accent={project.accent}/><span className={styles.openHint}>{trash ? "Restore project" : "Open board"}<Icon name={trash ? "history" : "forward"} size={15}/></span></>;
+  return <article data-accent={project.accent} className={`${styles.projectCard} ${menuOpen ? styles.cardMenuOpen : ""}`}>
     {trash ? <button className={styles.previewButton} onClick={() => onRestore(project.id)} aria-label={`Restore ${project.title}`}>{preview}</button> : <Link className={styles.previewButton} {...navigation} aria-label={`Open ${project.title}`}>{preview}</Link>}
     <div className={styles.cardMeta}>
       <div className={styles.cardTitle}>{trash ? <button className={styles.projectName} onClick={() => onRestore(project.id)}>{project.title}</button> : <Link className={styles.projectName} {...navigation}>{project.title}</Link>}<span className={styles.projectDetails}>{project.folder && <span className={styles.folderLabel}><Icon name="folder" size={13}/>{project.folder}</span>}<span>{updatedLabel(project, trash)}</span></span></div>
@@ -86,7 +87,7 @@ function ProjectCard({ project, returnTo, onDelete, onDuplicate, onRename, onFav
 }
 
 function TemplateCard({ template, onCreate }) {
-  return <button className={styles.templateCard} onClick={() => onCreate(template)}><div className={styles.templatePreview}><BoardPreview board={template.board}/></div><span><strong>{template.name}</strong><small>{template.description}</small></span><Icon name="forward" size={16}/></button>;
+  return <button className={styles.templateCard} data-accent={template.accent} onClick={() => onCreate(template)}><div className={styles.templatePreview}><BoardPreview board={template.board}/></div><span><strong>{template.name}</strong><small>{template.description}</small></span><Icon name="forward" size={16}/></button>;
 }
 
 const formatBytes = value => value < 1024 * 1024 ? `${Math.max(1, Math.round(value / 1024))} KB` : `${(value / 1024 / 1024).toFixed(1)} MB`;
@@ -100,13 +101,15 @@ export default function Home({ projects, deletedProjects, storageError, onDismis
   const { folderName } = useParams(), location = useLocation();
   const sectionTitle = section === "folder" ? folderName : section === "favorites" ? "Favorites" : section === "trash" ? "Trash" : "Your projects";
   usePageTitle(section === "projects" ? "Projects" : sectionTitle);
-  const [storage, setStorage] = useState(null), [gallery, setGallery] = useState(false), [sort, setSort] = useState("recent"), [view, setView] = useState("grid");
+  const [storage, setStorage] = useState(null), [sort, setSort] = useState("recent"), [view, setView] = useState("grid");
+  const gallery = searchParams.get("templates") === "1";
   const fileInput = useRef(null), galleryTrigger = useRef(null);
   const folders = useMemo(() => [...new Set(projects.map(project => project.folder).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [projects]);
   const visibleProjects = section === "trash" ? deletedProjects : section === "favorites" ? projects.filter(project => project.favorite) : section === "folder" ? projects.filter(project => project.folder === folderName) : projects;
   const filtered = visibleProjects.filter(project => [project.title, project.folder, ...(project.board?.nodes || []).flatMap(node => [node.title, node.note])].filter(Boolean).join(" ").toLowerCase().includes(query.trim().toLowerCase())).sort((a, b) => sort === "name" ? a.title.localeCompare(b.title) : sort === "oldest" ? a.updated - b.updated : b.updated - a.updated);
   useEffect(() => { let active = true; getStorageEstimate().then(value => { if (active) setStorage(value); }).catch(() => {}); return () => { active = false; }; }, [projects, deletedProjects]);
-  const closeGallery = () => { setGallery(false); galleryTrigger.current?.focus(); };
+  const closeGallery = () => { setSearchParams(previous => { const next = new URLSearchParams(previous); next.delete("templates"); return next; }, { replace: true }); galleryTrigger.current?.focus(); };
+  const openGallery = event => { galleryTrigger.current = event.currentTarget; setSearchParams(previous => { const next = new URLSearchParams(previous); next.set("templates", "1"); return next; }, { replace: true }); };
   const confirmProjectDelete = (id, permanent = false) => {
     const project = (permanent ? deletedProjects : projects).find(item => item.id === id);
     if (!project) return;
@@ -118,34 +121,36 @@ export default function Home({ projects, deletedProjects, storageError, onDismis
       onConfirm: () => (permanent ? onDeleteForever : onDelete)(id),
     });
   };
-  const description = section === "trash" ? "A second chance for ideas. Restore a project whenever you need it." : section === "favorites" ? "The ideas you want to keep close." : section === "folder" ? "A little more order. A little more room to think." : "A little space for your next big idea.";
+  const description = section === "trash" ? "A second chance for ideas. Restore a project whenever you need it." : section === "favorites" ? "The ideas you want to keep close." : section === "folder" ? "A little more order. A little more room to think." : "A home for the ideas you’re growing. Pick up a thought, or start a new one.";
   return <div className={styles.home}>
     <a href="#workspace-content" className={styles.skipLink}>Skip to projects</a>
     <aside className={styles.sidebar}>
       <Link className={styles.brand} to="/" aria-label="Nova home"><NovaMark/><b>Nova<span>Space to think.</span></b></Link>
-      <p className={styles.navLabel}>WORKSPACE</p>
+      <div className={styles.workspaceIdentity}><span>N</span><div><strong>Personal workspace</strong><small>Just for you</small></div><Icon name="lock" size={14}/></div>
+      <p className={styles.navLabel}>YOUR LIBRARY</p>
       <nav aria-label="Workspace"><NavLink to="/projects" end className={({ isActive }) => isActive ? styles.activeNav : ""}><Icon name="grid"/><span>Projects</span><small>{projects.length}</small></NavLink><NavLink to="/projects/favorites" className={({ isActive }) => isActive ? styles.activeNav : ""}><Icon name="star"/><span>Favorites</span></NavLink><NavLink to="/projects/trash" className={({ isActive }) => isActive ? styles.activeNav : ""}><Icon name="trash"/><span>Trash</span>{deletedProjects.length > 0 && <small>{deletedProjects.length}</small>}</NavLink>
         {folders.length > 0 && <div className={styles.folderNav}><p className={styles.navLabel}>FOLDERS</p>{folders.map(folder => <NavLink key={folder} caseSensitive to={folderPath(folder)} className={({ isActive }) => isActive ? styles.activeNav : ""} title={folder}><Icon name="folder"/><span>{folder}</span></NavLink>)}</div>}
       </nav>
-      <div className={styles.sidebarNote}><span><Icon name="lock" size={17}/>Yours, by default.</span><p>Your ideas stay on this device.<br/>No account. Just you and a canvas.</p></div>
+      <button className={styles.templateNav} onClick={openGallery}><Icon name="layout"/><span>Template library</span><small>{templates.length}</small></button>
+      <div className={styles.sidebarNote}><Icon name="spark" size={27}/><span>A little room<br/>for a big idea.</span><p>Make connections.<br/>See where they take you.</p><button onClick={() => onCreate()}>Make something new<Icon name="forward" size={14}/></button></div>
       <div className={styles.localStatus}><i/><div><b>Local workspace</b><small>{storage ? `${formatBytes(storage.usage)} used on this device` : "Stored on this device"}</small></div></div>
     </aside>
     <div className={styles.workspace}>
-      <div className={styles.topbar}><div className={styles.breadcrumb}><span>Workspace</span><Icon name="chevron" size={14}/><b>{section === "projects" ? "Projects" : sectionTitle}</b></div><div className={styles.workspaceTools}><span className={styles.savedStatus}><i/>Saved on this device</span><button className={styles.quietButton} onClick={onBackup}><Icon name="download" size={16}/><span>Back up workspace</span></button></div></div>
+      <div className={styles.topbar}><div className={styles.breadcrumb}><Icon name="folder" size={16}/><span>Workspace</span><Icon name="chevron" size={12}/><b>{section === "projects" ? "Projects" : sectionTitle}</b></div><div className={styles.workspaceTools}><span className={styles.savedStatus}><i/>Saved on this device</span><button className={styles.quietButton} onClick={onBackup}><Icon name="download" size={16}/><span>Back up workspace</span></button></div></div>
       <main id="workspace-content" className={styles.main}>
-        <header className={styles.pageHeader}><div><p className={styles.eyebrow}>A CLEARER HEAD STARTS HERE</p><h1>{sectionTitle}<span>.</span></h1><p className={styles.subtitle}>{description}</p></div><div className={styles.homeActions}><button className={styles.secondaryButton} onClick={() => fileInput.current?.click()}><Icon name="upload"/>Import</button><button className={styles.primaryButton} aria-label="New mind map" onClick={() => onCreate()}><Icon name="plus"/>New mind map</button></div></header>
+        <header className={styles.pageHeader}><div><p className={styles.eyebrow}><span/>YOUR WORKSPACE</p><h1>{sectionTitle}<span>.</span></h1><p className={styles.subtitle}>{description}</p></div><div className={styles.homeActions}><button className={styles.secondaryButton} onClick={() => fileInput.current?.click()}><Icon name="upload" size={17}/>Import</button><button className={styles.primaryButton} aria-label="New mind map" onClick={() => onCreate()}><Icon name="plus" size={18}/>New mind map</button></div></header>
         {storageError && <div className={styles.storageError} role="alert"><span>{storageError}</span><button onClick={onDismissError}>Dismiss</button></div>}
-        {section === "projects" && !query && <section className={styles.templates} aria-labelledby="templates-title"><div className={styles.sectionHeading}><h2 id="templates-title">Start something new</h2><button className={styles.textButton} ref={galleryTrigger} onClick={() => setGallery(true)}>Browse templates<Icon name="forward" size={16}/></button></div><div className={styles.templateGrid}>
-          <button className={styles.blankCard} onClick={() => onCreate()}><span className={styles.blankIcon}><Icon name="plus" size={24}/></span><span><strong>A fresh canvas</strong><small>Start with a little possibility.</small></span><Icon name="forward" size={16}/></button>
-          {[templates[0], templates[4], templates[1]].map(template => <TemplateCard key={template.id} template={template} onCreate={onCreate}/>)}</div></section>}
+        {section === "projects" && !query && <section className={styles.templates} aria-labelledby="templates-title"><div className={styles.sectionHeading}><div><h2 id="templates-title">Start something new</h2><p>A blank page or a little head start.</p></div><button className={styles.textButton} onClick={openGallery}>Browse templates<Icon name="forward" size={16}/></button></div><div className={styles.templateGrid}>
+          <button className={styles.blankCard} onClick={() => onCreate()}><span className={styles.blankIcon}><Icon name="plus" size={28}/></span><span><strong>A fresh canvas</strong><small>One thought. Endless possibilities.</small></span><Icon name="forward" size={18}/></button>
+          {featuredTemplateIds.map(id => templates.find(template => template.id === id)).map(template => <TemplateCard key={template.id} template={template} onCreate={onCreate}/>)}</div></section>}
         <input ref={fileInput} className={styles.fileInput} type="file" accept=".nova,.nova-workspace,application/json,application/x-nova+json,application/x-nova-workspace+json" onChange={event => { const file = event.target.files?.[0]; if (file) onImport(file); event.target.value = ""; }}/>
         <section className={styles.projects} aria-labelledby="projects-title"><div className={styles.projectToolbar}><div className={styles.projectHeading}><h2 id="projects-title" ref={projectsHeading} tabIndex={-1}>{query ? "Search results" : section === "projects" ? "All projects" : sectionTitle}</h2><span aria-live="polite">{filtered.length}</span></div><div className={styles.filters}><label className={styles.search}><Icon name="search" size={18}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search projects…" aria-label="Search projects"/>{query && <button className={styles.iconButton} aria-label="Clear search" onClick={() => setQuery("")}><Icon name="close" size={16}/></button>}</label><select aria-label="Sort projects" value={sort} onChange={event => setSort(event.target.value)}><option value="recent">Last edited</option><option value="name">Name A–Z</option><option value="oldest">Oldest first</option></select><div className={styles.viewToggle} aria-label="Project view"><button aria-label="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")}><Icon name="grid" size={17}/></button><button aria-label="List view" aria-pressed={view === "list"} onClick={() => setView("list")}><Icon name="bulletList" size={19}/></button></div></div></div>
           {filtered.length ? <div className={`${styles.projectGrid} ${view === "list" ? styles.projectList : ""}`}>{filtered.map(project => <ProjectCard key={project.id} project={project} trash={section === "trash"} returnTo={location.pathname + location.search} onDelete={id => confirmProjectDelete(id)} onRestore={onRestore} onDeleteForever={id => confirmProjectDelete(id, true)} onDuplicate={onDuplicate} onRename={onRename} onFavorite={onFavorite} onMoveFolder={onMoveFolder} onExport={onExport}/>)}</div> : <div className={styles.empty}><span className={styles.emptyIcon}><Icon name={query ? "search" : section === "trash" ? "trash" : section === "favorites" ? "star" : "layout"} size={28}/></span><h3>{query ? "No matching ideas yet" : section === "trash" ? "Nothing in the trash" : section === "favorites" ? "Keep your best ideas close" : "Your next idea starts here"}</h3><p>{query ? "Try a different name, folder, or word from your board." : section === "trash" ? "Projects you delete will appear here, ready to restore." : section === "favorites" ? "Star a project and you’ll find it right here." : "Create a mind map and see where it takes you."}</p>{query ? <button className={styles.secondaryButton} onClick={() => setQuery("")}>Clear search</button> : section === "projects" ? <button className={styles.primaryButton} onClick={() => onCreate()}><Icon name="plus"/>Create your first map</button> : section === "favorites" ? <Link className={styles.secondaryButton} to="/projects">Explore your projects<Icon name="forward" size={16}/></Link> : null}</div>}
         </section>
-        <footer className={styles.workspaceFooter}><span><Icon name="lock" size={14}/>Private by default. Room for every idea.</span><span>{projects.length} {projects.length === 1 ? "project" : "projects"} in your workspace</span></footer>
+        <footer className={styles.workspaceFooter}><span><Icon name="lock" size={14}/>Your ideas stay yours. Saved only on this device.</span><span>Made for a little more clarity.<Icon name="spark" size={16}/></span></footer>
       </main>
     </div>
     {deleteConfirmation}
-    <MotionPresence present={gallery}><Dialog title="A starting point for every idea" description="Pick a template and make it your own." onClose={closeGallery} wide><div className={styles.galleryGrid}>{templates.map(template => <TemplateCard key={template.id} template={template} onCreate={onCreate}/>)}</div></Dialog></MotionPresence>
+    <MotionPresence present={gallery}><TemplateLibrary onClose={closeGallery} onCreate={onCreate}/></MotionPresence>
   </div>;
 }

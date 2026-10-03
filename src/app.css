@@ -1,4 +1,27 @@
 :root {
+  --nova-font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --nova-text-xs: .75rem;
+  --nova-text-sm: .875rem;
+  --nova-text-md: 1rem;
+  --nova-text-lg: 1.125rem;
+  --nova-text-xl: 1.25rem;
+  --nova-text-2xl: 1.5rem;
+  --nova-title: clamp(2rem, 3vw, 2.75rem);
+  --nova-leading-tight: 1.25;
+  --nova-leading-ui: 1.5;
+  --nova-leading-copy: 1.65;
+  --nova-space-1: 4px;
+  --nova-space-2: 8px;
+  --nova-space-3: 12px;
+  --nova-space-4: 16px;
+  --nova-space-5: 20px;
+  --nova-space-6: 24px;
+  --nova-space-8: 32px;
+  --nova-space-10: 40px;
+  --nova-space-12: 48px;
+  --nova-control-height: 44px;
+  --nova-page-gutter: clamp(20px, 3.2vw, 48px);
+  --nova-panel-padding: 24px;
   /* One palette for the public site, workspace, board tools, and dialogs. */
   --nova-ink: #151621;
   --nova-text: #42495b;
@@ -18,13 +41,16 @@
   --nova-danger: #b42342;
   --nova-danger-soft: #fff0f3;
   --nova-focus-ring: #6436dc26;
+  --nova-popover-shadow: 0 12px 36px #22203b1a, 0 2px 6px #22203b0a;
   --nova-scrim: #15162166;
   --nova-motion-fast: 140ms;
   --nova-motion-enter: 220ms;
   --nova-motion-exit: 160ms;
   --nova-motion-page: 240ms;
   --nova-motion-ease: cubic-bezier(.2, .8, .2, 1);
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--nova-font-family);
+  font-size: 16px;
+  line-height: var(--nova-leading-ui);
   color: var(--nova-ink);
   background: var(--nova-surface);
   font-synthesis: none;
@@ -58,3 +84,12 @@ button:focus-visible,a:focus-visible{outline:2px solid var(--nova-primary);outli
 
 input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--nova-primary);outline-offset:2px}
 @media(max-width:600px){.routeNotice h1{font-size:clamp(24px,7vw,30px)}.routeAction{min-height:46px}.appLoading{padding:24px}.appLoading b{font-size:14px}}
+
+/* Shared type and spacing for loading, import, and recovery routes. */
+.appLoading { gap:var(--nova-space-3);padding:var(--nova-space-6); }
+.appLoading b { font-size:var(--nova-text-sm);line-height:var(--nova-leading-ui); }
+.routeNotice { gap:0;padding:var(--nova-space-10) var(--nova-page-gutter); }
+.routeNotice h1 { margin:var(--nova-space-6) 0 var(--nova-space-3);font-size:clamp(1.75rem,3vw,2rem);line-height:var(--nova-leading-tight); }
+.routeNotice p { max-width:480px;font-size:var(--nova-text-md);line-height:var(--nova-leading-copy); }
+.routeAction { min-height:var(--nova-control-height);margin-top:var(--nova-space-6);padding:12px 20px;font-size:var(--nova-text-sm); }
+@media (max-width:600px) { :root { --nova-panel-padding:20px; } }

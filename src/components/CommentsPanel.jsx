@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import Icon from "./BoardIcon";
 import MotionPresence from "./MotionPresence";
 import { commentsForScope } from "../lib/boardComments";
-import styles from "../styles/canvas.module.css";
+import styles from "../styles/comments.module.css";
 
 const scopes = [
   { value: "shape", label: "Selected shape", icon: "box" },
@@ -70,46 +70,73 @@ function CommentScopePicker({ value, onChange }) {
   </div>;
 }
 
-export default function CommentsPanel({ nodes, edges, targetId, selectedEdge, onAdd, onResolve, onDelete, onChoose, onClose }) {
+export default function CommentsPanel({ nodes, edges, targetId, selectedEdge, focusTarget, onAdd, onResolve, onDelete, onChoose, onClose, readOnly = false }) {
   const [drafts, setDrafts] = useState({});
+  const [status, setStatus] = useState("all");
+  const composerRef = useRef(null), listRef = useRef(null);
   const [scope, setScope] = useState(() => targetId != null ? "shape" : selectedEdge != null ? "branch" : "all");
+  useEffect(() => {
+    if (!focusTarget) return;
+    setScope("shape");
+    setStatus("all");
+    listRef.current?.scrollTo({ top: 0 });
+  }, [focusTarget]);
   const chosen = nodes.find(node => node.id === targetId);
   const chosenId = chosen?.id ?? "", text = drafts[chosenId] || "";
   const comments = commentsForScope(nodes, edges, scope, targetId, selectedEdge);
   const openCount = comments.filter(comment => !comment.resolved).length;
+  const visibleComments = comments.filter(comment => status === "all" || (status === "resolved" ? comment.resolved : !comment.resolved));
   const needsSelection = scope === "shape" ? !chosen : scope === "branch" && !chosen && selectedEdge == null;
-  const emptyTitle = needsSelection ? "Select a shape" : "No comments yet";
+  const emptyTitle = needsSelection ? "Choose a shape to explore" : comments.length ? (status === "resolved" ? "Nothing resolved yet" : "All caught up") : readOnly ? "No comments" : "Start the conversation";
   const emptyHint = needsSelection ? (scope === "branch" ? "Choose a shape or line on the board." : "Choose a box on the board.")
-    : scope === "all" ? "Comments from all branches appear here."
-      : scope === "branch" ? "No comments in this branch." : "Add a comment for this shape.";
+    : comments.length ? (status === "resolved" ? "Resolved comments will appear here." : "Every comment in this view is resolved.")
+      : readOnly ? "There are no comments in this part of the shared board." : chosen ? "Ask a question, leave feedback, or capture a thought about this idea."
+        : "Select a shape on the canvas to leave your first note.";
   const submit = event => {
     event.preventDefault();
     const clean = text.trim();
-    if (!clean || !chosen) return;
+    if (readOnly || !clean || !chosen) return;
     onAdd(chosen.id, clean);
     setDrafts(current => ({ ...current, [chosenId]: "" }));
+    setStatus("all");
+    listRef.current?.scrollTo({ top: 0 });
+    composerRef.current?.focus();
   };
 
-  return <aside className={`${styles.panelSurface} ${styles.commentsPanel}`} aria-label="Local comments">
-    <header><div><small>LOCAL DISCUSSION</small><h2>Comments <b>{openCount}</b></h2></div><button onClick={onClose} aria-label="Close comments">×</button></header>
-    <form onSubmit={submit}>
+  return <aside data-comments-panel className={styles.commentsPanel} aria-label="Local comments">
+    <header className={styles.header}>
+      <span className={styles.headerIcon}><Icon name="comment" size={21}/></span>
+      <div><h2>Comments <span>{comments.length}</span></h2><p>Notes attached to your ideas.</p></div>
+      <button className={styles.closeButton} onClick={onClose} aria-label="Close comments"><Icon name="close" size={18}/></button>
+    </header>
+    <div className={styles.filters}>
       <CommentScopePicker value={scope} onChange={setScope}/>
-      {chosen && <div className={styles.commentComposerTarget}>On <strong>{chosen.title || "Untitled"}</strong></div>}
-      <textarea value={text} disabled={!chosen} onChange={event => setDrafts(current => ({ ...current, [chosenId]: event.target.value }))}
-        aria-label={chosen ? `Comment on ${chosen.title || "Untitled"}` : "Select a shape to comment"}
-        placeholder={chosen ? "Add a local comment…" : "Select a shape to comment…"} rows="3"/>
-      <button disabled={!text.trim() || !chosen}>Comment</button>
-    </form>
-    <div className={styles.commentList} aria-live="polite">
-      {comments.length ? comments.map(comment => <article key={`${comment.nodeId}:${comment.id}`} className={comment.resolved ? styles.commentResolved : ""}>
-        <button className={styles.commentTarget} onClick={() => onChoose(nodes.find(node => node.id === comment.nodeId))} aria-label={`Go to ${comment.nodeTitle || "Untitled shape"} on board`}><i/><span>{comment.nodeTitle || "Untitled"}</span></button>
+      <div className={styles.statusFilters} role="group" aria-label="Filter comments">
+        {[["all", "All", comments.length], ["open", "Open", openCount], ["resolved", "Resolved", comments.length - openCount]].map(([value, label, count]) => <button key={value} type="button" aria-pressed={status === value} onClick={() => setStatus(value)}>{label}<span>{count}</span></button>)}
+      </div>
+    </div>
+    <div ref={listRef} className={styles.commentList} aria-live="polite" aria-label="Comments in this view">
+      {visibleComments.length ? visibleComments.map(comment => <article key={`${comment.nodeId}:${comment.id}`} className={`${styles.commentCard} ${comment.resolved ? styles.commentResolved : ""}`}>
+        <div className={styles.cardHeader}><button className={styles.commentTarget} onClick={() => onChoose(nodes.find(node => node.id === comment.nodeId))} aria-label={`Go to ${comment.nodeTitle || "Untitled shape"} on board`}><Icon name="box" size={15}/><span>{comment.nodeTitle || "Untitled"}</span><Icon name="chevron" size={13}/></button>
+          <time dateTime={new Date(comment.createdAt).toJSON() || undefined} title={new Date(comment.createdAt).toLocaleString()}>{new Date(comment.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</time></div>
         <p>{comment.text}</p>
         <footer>
-          <time>{new Date(comment.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time>
-          <button onClick={() => onResolve(comment.nodeId, comment.id)}>{comment.resolved ? "Reopen" : "Resolve"}</button>
-          <button onClick={() => onDelete(comment.nodeId, comment.id)} aria-label="Delete comment"><Icon name="trash" size={13}/></button>
+          <span className={styles.commentState}>{comment.resolved ? <Icon name="check" size={13}/> : <i/>}{comment.resolved ? "Resolved" : "Open"}</span>
+          {!readOnly&&<><button className={styles.resolveButton} onClick={() => onResolve(comment.nodeId, comment.id)}>{comment.resolved ? "Reopen" : "Resolve"}{!comment.resolved && <Icon name="check" size={14}/>}</button>
+          <button className={styles.deleteButton} onClick={() => onDelete(comment.nodeId, comment.id)} aria-label="Delete comment" title="Delete comment"><Icon name="trash" size={15}/></button></>}
         </footer>
-      </article>) : <div className={`${styles.panelEmpty} ${styles.commentEmpty}`}><Icon name="comment" size={20}/><b>{emptyTitle}</b><span>{emptyHint}</span></div>}
+      </article>) : <div className={styles.commentEmpty}><span className={styles.emptyIcon}><Icon name={comments.length && status === "open" ? "check" : "comment"} size={27}/></span><h3>{emptyTitle}</h3><p>{emptyHint}</p>{!readOnly && chosen && !comments.length && <button onClick={() => composerRef.current?.focus()}>Write a comment <Icon name="forward" size={15}/></button>}</div>}
     </div>
+    {readOnly ? <div className={styles.composer}><div className={styles.selectionHint}><Icon name="eye" size={18}/><span>Read-only · Comments from the shared board.</span></div></div> : <form className={styles.composer} onSubmit={submit}>
+      {chosen ? <>
+        <div className={styles.composerTarget}><span>Commenting on</span><Icon name="box" size={14}/><strong title={chosen.title || "Untitled"}>{chosen.title || "Untitled"}</strong></div>
+        <div className={styles.composerField}>
+          <textarea ref={composerRef} value={text} onChange={event => setDrafts(current => ({ ...current, [chosenId]: event.target.value }))}
+            onKeyDown={event => { if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !event.nativeEvent.isComposing) submit(event); }}
+            aria-label={`Comment on ${chosen.title || "Untitled"}`} placeholder="Add a local comment…" rows="3"/>
+          <div className={styles.composerActions}><span><Icon name="lock" size={12}/> On this device</span><button type="submit" disabled={!text.trim()}>Comment <Icon name="forward" size={16}/></button></div>
+        </div>
+      </> : <div className={styles.selectionHint}><Icon name="cursor" size={20}/><span>Select a shape on the canvas to add a comment.</span></div>}
+    </form>}
   </aside>;
 }

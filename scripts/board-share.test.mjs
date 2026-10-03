@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { gzipSync } from "node:zlib";
 import test from "node:test";
-import { createShareUrl, readShareHash, sharedProjectCopy, isLocalShareUrl, MAX_SHARE_BYTES } from "../src/lib/boardShare.js";
+import { createShareUrl, readShareHash, readShareLink, sharedProjectCopy, isLocalShareUrl, MAX_SHARE_BYTES } from "../src/lib/boardShare.js";
 import { createSavedView } from "../src/lib/boardViews.js";
 import { templates } from "../src/data/templates.js";
 
@@ -41,7 +41,7 @@ test("share URL carries the complete board independently of sender storage", asy
   assert.equal(url.origin, "https://nova.example");
   assert.equal(url.pathname, "/share");
   assert.equal(url.search, "");
-  assert.match(url.hash, /^#v1\.gzip\.[A-Za-z0-9_-]+$/);
+  assert.match(url.hash, /^#v2\.gzip\.[A-Za-z0-9_-]+$/);
   assert.ok(url.hash.length < Buffer.byteLength(JSON.stringify(project)));
   assert.deepEqual(await readShareHash(url.hash), project);
   assert.deepEqual(project, before);
@@ -52,6 +52,26 @@ test("every board template survives sharing without losing its geometry or style
     const source = { id: template.id, title: template.name, accent: template.accent, board: template.board };
     assert.deepEqual(await readShareHash(new URL(await createShareUrl(source, "https://nova.example")).hash), source);
   }
+});
+
+test("share access travels with the snapshot while legacy links remain editable", async () => {
+  for (const access of ["readonly", "editable"]) {
+    const url = new URL(await createShareUrl(project, "https://nova.example", { access }));
+    const decoded = await readShareLink(url.hash);
+    assert.equal(decoded.access, access);
+    assert.deepEqual(decoded.project, project);
+    assert.match(url.hash, /^#v2\./);
+  }
+  assert.equal((await readShareLink(externalHash(envelope(project)))).access, "editable");
+});
+
+test("missing or unknown v2 access never falls back to an editable copy", async () => {
+  for (const access of [undefined, null, "owner", "read-only", true, {}]) {
+    const hash = externalHash({ format: "nova-share", version: 2, project, access }).replace("#v1.", "#v2.");
+    await assert.rejects(readShareLink(hash), /invalid or incomplete/);
+  }
+  await assert.rejects(createShareUrl(project, "https://nova.example", { access: "owner" }), /Choose Read-only or Editable/);
+  await assert.rejects(readShareLink(externalHash(envelope(project)).replace("#v1.", "#v2.")), /invalid or incomplete/);
 });
 
 test("independently encoded compressed and plain links load Unicode and all board fields", async () => {

@@ -1,7 +1,8 @@
 import { nodeSize, palettes, rootColors } from "../lib/boardAppearance";
+import { boardEdgeData } from "../lib/boardGeometry";
 
 /** A single coordinate space keeps thumbnail nodes and connections aligned. */
-export default function BoardPreview({ board, title = "Your idea", accent = "violet" }) {
+export default function BoardPreview({ board, title = "Your idea", accent = "violet", detailed = false }) {
   const nodes = board?.nodes || [
     { id: 1, x: 0, y: 130, title, root: true, color: accent },
     { id: 2, x: 410, y: 0, title: "Explore", color: "pink" },
@@ -15,27 +16,25 @@ export default function BoardPreview({ board, title = "Your idea", accent = "vio
     return { left: Math.min(area.left, node.x), top: Math.min(area.top, node.y), right: Math.max(area.right, node.x + width), bottom: Math.max(area.bottom, node.y + height) };
   }, { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity });
   const width = bounds.right - bounds.left, height = bounds.bottom - bounds.top;
-  const scale = Math.min(340 / Math.max(1, width), 154 / Math.max(1, height), .7);
-  const nodeMap = new Map(nodes.map(node => [node.id, node]));
-  return <svg viewBox="0 0 400 200" aria-hidden="true" focusable="false">
-    <g transform={`translate(${(400 - width * scale) / 2} ${(200 - height * scale) / 2}) scale(${scale}) translate(${-bounds.left} ${-bounds.top})`}>
-      {edges.map(edge => {
-        const a = nodeMap.get(edge.from), b = nodeMap.get(edge.to);
-        if (!a || !b) return null;
-        const as = nodeSize(a), bs = nodeSize(b);
-        const ax = a.x + as.width / 2, ay = a.y + as.height / 2, bx = b.x + bs.width / 2, by = b.y + bs.height / 2;
-        return <path key={edge.id} d={`M${ax} ${ay} C${(ax + bx) / 2} ${ay},${(ax + bx) / 2} ${by},${bx} ${by}`} stroke="var(--nova-border-strong)" strokeWidth="2.5" fill="none"/>;
-      })}
+  const viewWidth = detailed ? 1000 : 400, viewHeight = detailed ? 500 : 200;
+  const scale = Math.min((viewWidth - 40) / Math.max(1, width), (viewHeight - 40) / Math.max(1, height), detailed ? 1 : .7);
+  const connections = boardEdgeData(nodes, edges, { structure: "elbow", pattern: "solid", weight: "regular", ...board?.globalSettings }).filter(Boolean);
+  return <svg viewBox={`0 0 ${viewWidth} ${viewHeight}`} aria-hidden="true" focusable="false">
+    <g transform={`translate(${(viewWidth - width * scale) / 2} ${(viewHeight - height * scale) / 2}) scale(${scale}) translate(${-bounds.left} ${-bounds.top})`}>
+      {connections.map(edge => <path key={edge.id} d={edge.path} stroke="var(--nova-border-strong)" strokeWidth="2" strokeDasharray={edge.pattern === "dotted" ? "2 5" : edge.pattern === "dashed" ? "8 5" : undefined} fill="none"/>)}
       {nodes.map(node => {
         const { width: w, height: h } = nodeSize(node), colors = palettes[node.color] || palettes.white;
         const fill = node.root ? rootColors(node).fill : colors[0], text = node.root ? rootColors(node).text : "var(--nova-ink)";
         const round = ["circle", "ellipse", "pill"].includes(node.shape) ? Math.min(w, h) / 2 : node.shape === "rectangle" ? 3 : 14;
         const label = String(node.title || "Untitled");
-        const shortLabel = label.length > 20 ? `${label.slice(0, 18)}…` : label;
+        const limit = detailed ? 28 : 22;
+        const shortLabel = label.length > limit ? `${label.slice(0, limit - 2)}…` : label;
         const fontSize = Math.min(20, (w - 24) / Math.max(1, shortLabel.length * .56));
+        const note = String(node.note || "");
         return <g key={node.id} transform={`translate(${node.x} ${node.y})`}>
           <rect width={w} height={h} rx={round} fill={fill} stroke={node.root ? fill : colors[1]} strokeWidth="1.5"/>
-          <text x={w / 2} y={h / 2 + fontSize * .3} textAnchor="middle" fill={text} fontSize={fontSize} fontWeight="550">{shortLabel}</text>
+          <text x={w / 2} y={h / 2 + fontSize * .3 - (detailed && note ? 12 : 0)} textAnchor="middle" fill={text} fontSize={fontSize} fontWeight="550">{shortLabel}</text>
+          {detailed && note && <text x={w / 2} y={h / 2 + 23} textAnchor="middle" fill={node.root ? rootColors(node).note : "var(--nova-muted)"} fontSize={Math.min(14, (w - 28) / Math.max(1, note.length * .52))}>{note}</text>}
         </g>;
       })}
     </g>

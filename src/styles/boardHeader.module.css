@@ -5,7 +5,7 @@
   flex:0 1 auto;
   min-width:100px;
   max-width:min(380px,calc(50vw - 190px));
-  gap:12px;
+  gap:var(--nova-space-3);
 }
 
 .titleEditor {
@@ -13,9 +13,9 @@
   align-items:center;
   gap:3px;
   min-width:0;
-  font-size:14px;
+  font-size:var(--nova-text-md);
   font-weight:600;
-  line-height:1.4;
+  line-height:var(--nova-leading-ui);
 }
 
 .titleField {
@@ -25,8 +25,8 @@
 }
 
 .titleMeasure,.titleInput {
-  height:28px;
-  padding:4px 3px;
+  height:36px;
+  padding:5px 4px;
   border:1px solid transparent;
   font:inherit;
   letter-spacing:-.1px;
@@ -83,7 +83,7 @@
   display:flex;
   align-items:center;
   flex:none;
-  gap:6px;
+  gap:var(--nova-space-2);
   min-height:24px;
   min-width:94px;
   justify-content:center;
@@ -92,7 +92,7 @@
   border-radius:999px;
   background:var(--nova-surface-tint);
   color:var(--nova-muted);
-  font-size:12px;
+  font-size:var(--nova-text-xs);
   font-weight:400;
   line-height:1.5;
   white-space:nowrap;
@@ -123,8 +123,8 @@
 .historyButton {
   display:grid;
   place-items:center;
-  width:32px;
-  height:32px;
+  width:40px;
+  height:40px;
   padding:0;
   border:0;
   border-radius:9px;
@@ -184,8 +184,8 @@
   border-radius:5px;
   background:var(--nova-surface);
   color:var(--nova-muted);
-  font-family:inherit;
-  font-size:11px;
+  font-family:var(--nova-font-family);
+  font-size:var(--nova-text-xs);
   font-weight:500;
   line-height:1;
   letter-spacing:0;
@@ -193,22 +193,22 @@
 }
 
 @media (min-width:761px) and (max-width:1100px) {
-  .identity { max-width:calc(50vw - 160px); }
+  .identity { max-width:calc(50vw - 160px); gap:var(--nova-space-3); }
   .historyButton { width:40px;height:40px; }
 }
 
 @media (max-width:760px),(max-height:500px) and (pointer:coarse) {
-  .identity { min-width:0;max-width:none; }
-  .titleEditor { max-width:100%;font-size:16px;gap:0; }
+  .identity { min-width:0;max-width:none;gap:var(--nova-space-3); }
+  .titleEditor { max-width:100%;font-size:var(--nova-text-md);gap:0;line-height:var(--nova-leading-ui); }
   .titleField { max-width:100%; }
-  .titleMeasure,.titleInput { height:44px;padding-block:10px; }
+  .titleMeasure,.titleInput { height:36px;padding-block:10px;padding:5px 4px; }
   .renameButton { width:44px;height:44px; }
-  .identity { gap:4px; }
-  .saveStatus { width:24px;min-width:24px;padding:0; }
+  .identity { gap:var(--nova-space-3); }
+  .saveStatus { width:24px;min-width:24px;padding:0;font-size:var(--nova-text-xs);gap:var(--nova-space-2); }
   .saveLabel { display:none; }
   .saveStatus[data-state="error"] { width:44px;min-height:44px; }
   .historyControls { position:static;transform:none;gap:0;margin:0;padding:0;border:0; }
-  .historyButton { width:44px;height:44px; }
+  .historyButton { width:40px;height:40px; }
 }
 
 @media (max-width:420px) {
@@ -218,4 +218,14 @@
 @media (prefers-reduced-motion:reduce) {
   .titleInput,.renameButton,.historyButton { transition:none; }
   .savePulse::after { animation:none;opacity:.35; }
+}
+
+@media (max-width:760px),(max-height:500px) and (pointer:coarse) {
+  .identity { gap:4px; }
+  .titleMeasure,.titleInput { height:44px;padding:10px 4px; }
+  .historyButton { width:44px;height:44px; }
+}
+@media (min-width:761px) and (max-width:1100px) {
+  .identity { flex:0 1 auto;min-width:0;max-width:440px; }
+  .historyControls { position:static;transform:none; }
 }

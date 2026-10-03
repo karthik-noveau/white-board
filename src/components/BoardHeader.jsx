@@ -23,7 +23,7 @@ function BoardTitleInput({ title, onRename }) {
   </div>;
 }
 
-export default function BoardHeader({ title, onRename, saveStatus = "saved", onRetrySave, backTo, onExport, onShare, onHistory, onOutline, outlineOpen, onPresent, onComments, onViews, onUndo, onRedo, canUndo, canRedo, selectingMultiple, onSelectMultiple }) {
+export default function BoardHeader({ title, onRename, saveStatus = "saved", onRetrySave, backTo, onExport, onShare, onHistory, onOutline, outlineOpen, onPresent, presentLabel = "Present board", onComments, onViews, onUndo, onRedo, canUndo, canRedo, selectingMultiple, onSelectMultiple }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef(null), triggerRef = useRef(null);
   useEffect(() => {
@@ -37,7 +37,7 @@ export default function BoardHeader({ title, onRename, saveStatus = "saved", onR
     document.addEventListener("keydown", escape, true);
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape, true); };
   }, [moreOpen]);
-  const actions = [["searchFilter", "Search & filter", onOutline], ["bookmark", "Saved views", onViews], ["comment", "Comments", onComments], ["present", "Present board", onPresent], ["history", "Version history", onHistory], ["download", "Export board", onExport]];
+  const actions = [["searchFilter", "Search & filter", onOutline], ["bookmark", "Saved views", onViews], ["comment", "Comments", onComments], ["present", presentLabel, onPresent], ["history", "Version history", onHistory], ["download", "Export board", onExport]];
   const saving=saveStatus==="saving",saveFailed=saveStatus==="error";
   const saveLabel=saving?"Saving…":saveFailed?"Not saved":"Saved";
   const saveHint=saving?"Saving changes on this device":saveFailed?"Changes could not be saved. Click to retry.":"Saved on this device";

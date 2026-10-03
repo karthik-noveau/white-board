@@ -82,24 +82,26 @@ async function readLimited(stream) {
   return result;
 }
 
-export async function createShareUrl(project, baseUrl) {
+export async function createShareUrl(project, baseUrl, { access = "editable" } = {}) {
   validateProject(project);
+  if (!["readonly", "editable"].includes(access)) throw new Error("Choose Read-only or Editable access.");
   const url = new URL("/share", baseUrl);
   if (!["https:", "http:"].includes(url.protocol)) throw new Error("Use an HTTP or HTTPS address for Nova.");
   // Serialize before awaiting compression so this is one consistent snapshot.
-  const bytes = new TextEncoder().encode(JSON.stringify({ format: "nova-share", version: 1, project }));
+  // A new link version prevents older clients from importing read-only links as editable copies.
+  const bytes = new TextEncoder().encode(JSON.stringify({ format: "nova-share", version: 2, access, project }));
   if (bytes.length > MAX_SHARE_BYTES) throw new Error(tooLarge);
   const compressed = typeof CompressionStream === "function";
   const encoded = compressed ? await readLimited(new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"))) : bytes;
-  url.hash = `v1.${compressed ? "gzip" : "json"}.${base64Url(encoded)}`;
+  url.hash = `v2.${compressed ? "gzip" : "json"}.${base64Url(encoded)}`;
   if (url.href.length > MAX_SHARE_URL_LENGTH) throw new Error(tooLarge);
   return url.href;
 }
 
-export async function readShareHash(hash) {
+export async function readShareLink(hash) {
   if (typeof hash !== "string" || hash.length > MAX_SHARE_URL_LENGTH) throw new Error(invalidLink);
   const [version, encoding, data, extra] = hash.replace(/^#/, "").split(".");
-  if (version !== "v1" || !["gzip", "json"].includes(encoding) || extra !== undefined || !data || !/^[A-Za-z0-9_-]+$/.test(data) || data.length % 4 === 1) throw new Error(invalidLink);
+  if (!["v1", "v2"].includes(version) || !["gzip", "json"].includes(encoding) || extra !== undefined || !data || !/^[A-Za-z0-9_-]+$/.test(data) || data.length % 4 === 1) throw new Error(invalidLink);
   if (encoding === "gzip" && typeof DecompressionStream !== "function") throw new Error("Open this link in an up-to-date browser to load the board.");
   try {
     const binary = atob(data.replaceAll("-", "+").replaceAll("_", "/"));
@@ -110,11 +112,17 @@ export async function readShareHash(hash) {
       if (["__proto__", "constructor", "prototype"].includes(key)) throw new Error(invalidLink);
       return value;
     });
-    if (payload?.format !== "nova-share" || payload.version !== 1) throw new Error(invalidLink);
-    return validateProject(payload.project);
+    if (payload?.format !== "nova-share" || payload.version !== Number(version.slice(1))) throw new Error(invalidLink);
+    const access = version === "v1" ? "editable" : payload.access;
+    if (!["readonly", "editable"].includes(access)) throw new Error(invalidLink);
+    return { project: validateProject(payload.project), access };
   } catch (error) {
     throw new Error(error.message === tooLarge ? tooLarge : invalidLink);
   }
+}
+
+export async function readShareHash(hash) {
+  return (await readShareLink(hash)).project;
 }
 
 export function sharedProjectCopy(project, id = `project-${crypto.randomUUID()}`, now = Date.now()) {

@@ -21,7 +21,6 @@ Navigation uses React Router and the browser History API.
 | `/projects/trash` | Recoverable deleted projects |
 | `/projects/folders/:folderName` | Projects in a URL-encoded folder |
 | `/boards/:boardId` | A saved board |
-| `/boards/:boardId?studio=1` | Opt in to the Canvas Studio preview |
 | `/share#v2.gzip.…` | Open a read-only snapshot or import an editable copy |
 
 Workspace searches use the `q` query parameter. Board links support opening in
@@ -63,56 +62,6 @@ Every new board is a separate copy of the template.
 Template content, category metadata, featured picks, and layout helpers live in
 `src/data/templates.js`. Run `node --test scripts/templates.test.mjs` to check
 catalog integrity, filtering, connected graphs, and overlapping cards.
-
-## Canvas Studio preview
-
-Task name: **Canvas Studio — Interactive Prototypes**. Implementation branch:
-`feature/canvas-studio`. Stable checkpoint: `d00c03b`, also available as
-`checkpoint/pre-canvas-studio-20261003`.
-
-Open a board with `?studio=1`, choose **Canvas Studio** (the sparkle in the header,
-or the mobile actions menu), then **Create studio copy**. The editor creates a
-new local project before adding any prototype content. Use **Original board**
-in the Studio panel to return. Ordinary boards keep their existing controls.
-
-Choose **Add starter experience** for a working three-screen city-guide flow,
-or insert a mobile (390 × 720) or desktop (960 × 640) screen. Select an element
-on the canvas or in Layers to edit text, accent, bounds, and its click action.
-Drag elements to rearrange them; drag the screen label or its empty background
-to move the whole screen. Screen sizes are fixed presets in this preview.
-
-Actions support screen navigation with slide/fade/instant transitions and
-history back. Choose a start screen and **Play prototype** to try the journey.
-The player includes back, restart, hotspot highlighting, and Escape to return.
-All edits use the board's save, undo/redo, and version history. Screens render
-in project thumbnails, exports, and read-only shared snapshots; recipients can
-play those snapshots without editing or saving the board. Sharing continues to
-use snapshots, so updated prototypes need a fresh link.
-
-### Rollback
-
-To return the code to the exact pre-Studio checkpoint, keep any later work safe
-and switch branches:
-
-```sh
-git switch checkpoint/pre-canvas-studio-20261003
-```
-
-To keep working on the feature branch while undoing this feature, revert its
-single `feat: add reversible Canvas Studio prototype preview` commit using
-`git revert <commit>`. Reverting code does not delete local projects. The
-original board is still available; Studio copies can be moved to Trash from
-Projects. To resume, switch back to `feature/canvas-studio`.
-
-Run logic checks with `node --test scripts/canvas-studio.test.mjs`. For browser
-checks, launch a separate Chrome test profile with remote debugging and run:
-
-```sh
-NOVA_QA_PORT=9237 NOVA_QA_URL=http://localhost:5177 python3 scripts/qa_canvas_studio.py
-```
-
-The browser checks create test-only projects, validate copy isolation, element
-editing/dragging, undo/redo, navigation, read-only sharing, and responsive layouts.
 
 ## Hosting
 

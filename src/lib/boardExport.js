@@ -1,8 +1,5 @@
 import { nodeSize, palettes, rootColors } from "./boardAppearance.js";
 
-import { isStudioScreen } from "./canvasStudio.js";
-import { studioScreenSvg } from "./studioSvg.js";
-
 const xml = value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[character]);
 const number = value => Math.round(value * 1000) / 1000;
 const colorAttributes = color => {
@@ -157,7 +154,6 @@ export function createBoardSvg(nodes, edges, background = "white", elements = ne
   const backdrop = background === "transparent" ? "" : `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${background === "grid" ? "#f8f9fb" : "#fff"}"/>${background === "grid" ? `<defs><pattern id="export-grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#cfd2d9"/></pattern></defs><rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#export-grid)"/>` : ""}`;
   const renderNode = (node, index) => {
     const size = nodeSize(node), [bg, border] = palettes[node.color] || palettes.white, colors = node.root ? rootColors(node) : { fill: bg, text: "#303139", note: "#777983" };
-    if (isStudioScreen(node)) return `<g transform="translate(${node.x} ${node.y}) rotate(${node.rotate || 0} ${size.width / 2} ${size.height / 2})"><svg width="${size.width}" height="${size.height}" viewBox="0 0 ${size.width} ${size.height}">${studioScreenSvg(node, `export-${index}`)}</svg></g>`;
     const rx = node.shape === "pill" ? size.height / 2 : node.shape === "rectangle" ? 2 : node.shape === "soft" ? 20 : 9;
     const ellipse = ["circle", "ellipse"].includes(node.shape);
     const geometry = ellipse ? `<ellipse cx="${size.width / 2}" cy="${size.height / 2}" rx="${size.width / 2}" ry="${size.height / 2}"` : `<rect width="${size.width}" height="${size.height}" rx="${rx}"`;

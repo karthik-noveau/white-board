@@ -1,12 +1,8 @@
-import { useId } from "react";
-import { isStudioScreen } from "../lib/canvasStudio";
-import { studioScreenSvg } from "../lib/studioSvg";
 import { nodeSize, palettes, rootColors } from "../lib/boardAppearance";
 import { boardEdgeData } from "../lib/boardGeometry";
 
 /** A single coordinate space keeps thumbnail nodes and connections aligned. */
 export default function BoardPreview({ board, title = "Your idea", accent = "violet", detailed = false }) {
-  const prefix=useId();
   const nodes = board?.nodes || [
     { id: 1, x: 0, y: 130, title, root: true, color: accent },
     { id: 2, x: 410, y: 0, title: "Explore", color: "pink" },
@@ -28,7 +24,6 @@ export default function BoardPreview({ board, title = "Your idea", accent = "vio
       {connections.map(edge => <path key={edge.id} d={edge.path} stroke="var(--nova-border-strong)" strokeWidth="2" strokeDasharray={edge.pattern === "dotted" ? "2 5" : edge.pattern === "dashed" ? "8 5" : undefined} fill="none"/>)}
       {nodes.map(node => {
         const { width: w, height: h } = nodeSize(node), colors = palettes[node.color] || palettes.white;
-        if(isStudioScreen(node))return <g key={node.id} transform={`translate(${node.x} ${node.y})`}><svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} dangerouslySetInnerHTML={{__html:studioScreenSvg(node,`${prefix}-${node.id}`)}}/></g>;
         const fill = node.root ? rootColors(node).fill : colors[0], text = node.root ? rootColors(node).text : "var(--nova-ink)";
         const round = ["circle", "ellipse", "pill"].includes(node.shape) ? Math.min(w, h) / 2 : node.shape === "rectangle" ? 3 : 14;
         const label = String(node.title || "Untitled");

@@ -1,5 +1,3 @@
-import { validStudioScreen } from "./canvasStudio.js";
-
 export const MAX_SHARE_BYTES = 8 * 1024 * 1024;
 export const MAX_SHARE_URL_LENGTH = 1_000_000;
 const invalidLink = "This share link is invalid or incomplete. Ask for a new link.";
@@ -31,7 +29,6 @@ function validateBoard(board, snapshot = false) {
   for (const node of board.nodes) {
     if (!isId(node.id) || nodeIds.has(node.id) || !isNumber(node.x) || !isNumber(node.y)) fail();
     nodeIds.add(node.id);
-    if (node.studio != null && (node.kind !== "frame" || !validStudioScreen(node.studio))) fail();
     for (const key of ["title", "note", "titleHtml", "noteHtml", "color", "shape", "kind", "status", "priority", "dueDate"]) {
       if (!optional(node[key], isText)) fail();
     }

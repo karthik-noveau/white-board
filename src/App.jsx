@@ -18,7 +18,6 @@ import {
   putProject,
   restoreProject,
 } from "./lib/localWorkspace";
-import { createStudioCopy } from "./lib/canvasStudio";
 import "./app.css";
 
 const Canvas = lazy(() => import("./components/Canvas"));
@@ -29,7 +28,7 @@ const starterProjects = [
   { id:"research-map", title:"Research synthesis", updated:Date.now()-172800000, accent:"green" },
 ];
 
-function BoardRoute({ projects, onRename, onSave, onCreateStudio, storageError }) {
+function BoardRoute({ projects, onRename, onSave, storageError }) {
   const { boardId } = useParams();
   const location = useLocation();
   const project = projects.find(item => item.id === boardId);
@@ -37,7 +36,7 @@ function BoardRoute({ projects, onRename, onSave, onCreateStudio, storageError }
   if (storageError && !project) return <RouteNotice title="Couldn’t open your workspace">{storageError}</RouteNotice>;
   if (!project) return <RouteNotice title="Board not found">This board isn’t in this browser’s local workspace. Open it on the device where you created it, or import its .nova file.</RouteNotice>;
   if (project.deletedAt) return <RouteNotice title="This board is in Trash" to="/projects/trash" action="Open Trash">Restore this board from Trash to open it again.</RouteNotice>;
-  return <Suspense fallback={<div className="appLoading" role="status"><span>✦</span><b>Opening your board…</b></div>}><Canvas key={project.id} project={project} studioAvailable={new URLSearchParams(location.search).get("studio")==="1"||Boolean(project.studioExperiment)} onCreateStudio={onCreateStudio} studioSource={projects.some(item=>item.id===project.studioExperiment?.sourceId&&!item.deletedAt)?project.studioExperiment:null} backTo={workspaceReturnPath(location.state?.from)} onRename={title => onRename(project.id, title)} onSave={onSave}/></Suspense>;
+  return <Suspense fallback={<div className="appLoading" role="status"><span>✦</span><b>Opening your board…</b></div>}><Canvas key={project.id} project={project} backTo={workspaceReturnPath(location.state?.from)} onRename={title => onRename(project.id, title)} onSave={onSave}/></Suspense>;
 }
 
 export default function App() {
@@ -74,12 +73,6 @@ export default function App() {
   const saveBoard=(id,board)=>updateProject(id,{board},{snapshot:true});
   const importProject=async file=>{try{const imported=await importNovaFile(file);replaceProjects([...imported,...projectsRef.current]);navigate("/projects")}catch(error){setStorageError(error.message)}};
   const importSharedProject=useCallback(async project=>{await putProject(project,{snapshot:true});replaceProjects([project,...projectsRef.current])},[replaceProjects]);
-  const createStudio=async(project,board)=>{
-    const copy=createStudioCopy(project,board);
-    await putProject(copy,{snapshot:true});
-    replaceProjects([copy,...projectsRef.current]);
-    navigate(`${boardPath(copy.id)}?studio=1`,{state:{from:workspaceReturnPath(location.state?.from)}});
-  };
   const backupWorkspace=()=>exportWorkspaceFile(projectsRef.current).catch(error=>setStorageError(error.message));
   if(loading)return <div className="appLoading"><span>✦</span><b>Opening your local workspace…</b></div>;
   const workspaceProps={projects:projects.filter(project=>!project.deletedAt),deletedProjects:projects.filter(project=>project.deletedAt),storageError,onDismissError:()=>setStorageError(""),onCreate:createProject,onDelete:deleteProject,onRestore:restoreDeleted,onDeleteForever:deleteForever,onDuplicate:duplicateProject,onRename:renameProject,onFavorite:toggleFavorite,onMoveFolder:moveToFolder,onExport:exportProjectFile,onBackup:backupWorkspace,onImport:importProject};
@@ -92,7 +85,7 @@ export default function App() {
       <Route path="folders/:folderName" element={<Home {...workspaceProps} section="folder"/>}/>
     </Route>
     <Route path="/share" element={<SharedBoardRoute onImport={importSharedProject}/>}/>
-    <Route path="/boards/:boardId" element={<BoardRoute projects={projects} onRename={renameProject} onSave={saveBoard} onCreateStudio={createStudio} storageError={storageError}/>}/>
+    <Route path="/boards/:boardId" element={<BoardRoute projects={projects} onRename={renameProject} onSave={saveBoard} storageError={storageError}/>}/>
     <Route path="*" element={<RouteNotice/>}/>
   </Routes></PageTransition>;
 }

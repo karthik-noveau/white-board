@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Node } from "./Canvas";
-import { PrototypePlayer } from "./CanvasStudio";
-import { studioScreens } from "../lib/canvasStudio";
 import CommentsPanel from "./CommentsPanel";
 import Icon from "./BoardIcon";
 import { versionPreviewData } from "../lib/versionPreview";
@@ -14,7 +12,6 @@ import styles from "../styles/readOnlyBoard.module.css";
 // This viewer never mounts the editor or writes to the local workspace.
 // Collapsing branches, selection, and the camera are temporary viewing state.
 export default function ReadOnlyBoard({ project }) {
-  const [playing,setPlaying]=useState(false);
   const viewportRef = useRef(null), pointers = useRef(new Map()), gesture = useRef(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const transformRef = useRef(transform); transformRef.current = transform;
@@ -112,7 +109,6 @@ export default function ReadOnlyBoard({ project }) {
       <Link to="/projects" className={styles.brand} aria-label="Nova projects"><span><Icon name="spark" size={18}/></span><b>Nova</b></Link>
       <div className={styles.title}><h1 title={project.title}>{project.title}</h1><p>Shared board</p></div>
       <span className={styles.access}><Icon name="eye" size={15}/>Read-only</span>
-      {studioScreens(project.board.nodes).length>0&&<button aria-label="Play prototype" onClick={()=>setPlaying(true)}><Icon name="present" size={18}/><span>Play</span></button>}
       <button aria-label="Comments" aria-expanded={commentsOpen} onClick={() => setCommentsOpen(value => !value)}><Icon name="comment" size={18}/><span>Comments</span></button>
     </header>
     <main ref={viewportRef} className={styles.viewport} tabIndex={0} role="region" aria-label="Read-only board. Drag or use arrow keys to pan; plus and minus to zoom; zero to fit."
@@ -136,7 +132,6 @@ export default function ReadOnlyBoard({ project }) {
       <button disabled={!graph.nodes.length || transform.scale >= 4} onClick={() => zoom(1.2)} aria-label="Zoom in">+</button><span/>
       <button disabled={!graph.nodes.length} onClick={fit} aria-label="Fit board"><Icon name="fit" size={16}/>Fit</button>
     </div></footer>
-    {playing&&<PrototypePlayer nodes={project.board.nodes} onClose={()=>setPlaying(false)}/>}
     {commentsOpen && <CommentsPanel readOnly nodes={graph.nodes} edges={project.board.edges} targetId={selectedId} focusTarget={commentTarget} onChoose={focusNode} onClose={() => setCommentsOpen(false)}/>}
   </div>;
 }

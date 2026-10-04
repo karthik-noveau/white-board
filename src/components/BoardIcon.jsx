@@ -5,6 +5,8 @@ export default function BoardIcon({ name, size = 18 }) {
   if (["link", "connect", "connectorPath"].includes(name)) return <ConnectorIcon size={size}/>;
 
   const icons = {
+    image: <><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/></>,
+    attachment: <path d="m8 13 7-7a3 3 0 0 1 4 4L9 20a5 5 0 0 1-7-7L13 2m-7 13 8-8"/>,
     plus: <path d="M12 5v14M5 12h14"/>,
     cursor: <path d="m5 3 13 8-6 1-3 6z"/>,
     hand: <path d="M7 11V7a2 2 0 0 1 4 0v3-5a2 2 0 0 1 4 0v5-3a2 2 0 0 1 4 0v7c0 5-3 7-7 7-3 0-5-1-7-4l-2-3a2 2 0 0 1 3-2z"/>,

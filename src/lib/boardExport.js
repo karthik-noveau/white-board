@@ -1,4 +1,5 @@
 import { nodeSize, palettes, rootColors } from "./boardAppearance.js";
+import { contentText, safeAttachment } from './cellContent.js';
 
 const xml = value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[character]);
 const number = value => Math.round(value * 1000) / 1000;
@@ -66,9 +67,10 @@ export function boardBounds(nodes, edges, padding = 48) {
     // contains the entire curve, including manually routed paths outside nodes.
     const values = (edge.path?.match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi) || []).map(Number);
     for (let index = 0; index + 1 < values.length; index += 2) points.push([values[index], values[index + 1]]);
-    if (edge.label && edge.control) {
+    const labelPoint = edge.labelPoint || edge.control;
+    if (edge.label && labelPoint) {
       const half = Math.min(90, Math.max(20, edge.label.length * 2.85 + 8));
-      points.push([edge.control.x - half, edge.control.y - 11], [edge.control.x + half, edge.control.y + 11]);
+      points.push([labelPoint.x - half, labelPoint.y - 11], [labelPoint.x + half, labelPoint.y + 11]);
     }
   }
   const valid = points.filter(point => point.every(Number.isFinite));
@@ -89,18 +91,38 @@ function measuredText(source) {
     copies[index].style.cssText = [...computed].map(property => `${property}:${computed.getPropertyValue(property)}`).join(";");
     copies[index].style.backgroundImage = "none";
     for (const attribute of [...copies[index].attributes]) {
-      if (/^on/i.test(attribute.name) || ["id", "src", "srcset", "href", "xlink:href"].includes(attribute.name)) copies[index].removeAttribute(attribute.name);
+      if (/^on/i.test(attribute.name) || ["id", "srcset", "href", "xlink:href"].includes(attribute.name) || attribute.name === 'src' && !safeAttachment(attribute.value, true)) copies[index].removeAttribute(attribute.name);
     }
   });
   Object.assign(clone.style, { position: "fixed", left: "-100000px", top: "0px", transform: "none", transition: "none", visibility: "hidden", outline: "none", boxShadow: "none", pointerEvents: "none" });
   clone.removeAttribute("data-export-node");
   clone.setAttribute("aria-hidden", "true");
   clone.inert = true;
-  clone.querySelectorAll("button,[contenteditable],input,textarea,script,style,link,iframe,object,embed,img,audio,video").forEach(element => element.remove());
+  clone.querySelectorAll("button,[contenteditable],input,textarea,script,style,link,iframe,object,embed,img:not([data-cell-image]),audio,video").forEach(element => element.remove());
   document.body.appendChild(clone);
   try {
     const origin = clone.getBoundingClientRect(), canvas = document.createElement("canvas"), context = canvas.getContext("2d"), output = [];
-    for (const field of clone.querySelectorAll(":scope > h3, :scope > p")) {
+    for (const box of clone.querySelectorAll('[data-cell-box]')) {
+      const rect = box.getBoundingClientRect(), style = getComputedStyle(box);
+      const x=rect.left-origin.left,y=rect.top-origin.top,w=rect.width,h=rect.height;
+      const sides=['Top','Right','Bottom','Left'], widths=sides.map(side=>parseFloat(style[`border${side}Width`])||0);
+      const uniform=widths.every(width=>width===widths[0]);
+      output.push(`<rect x="${number(x)}" y="${number(y)}" width="${number(w)}" height="${number(h)}" rx="${parseFloat(style.borderRadius)||0}" ${colorAttributes(style.backgroundColor)} stroke="${xml(style.borderTopColor)}" stroke-width="${uniform?widths[0]:0}"/>`);
+      if(!uniform) {
+        const lines=[[x,y,x+w,y],[x+w,y,x+w,y+h],[x,y+h,x+w,y+h],[x,y,x,y+h]];
+        sides.forEach((side,index)=>{if(widths[index])output.push(`<path d="M${number(lines[index][0])} ${number(lines[index][1])}L${number(lines[index][2])} ${number(lines[index][3])}" stroke="${xml(style[`border${side}Color`])}" stroke-width="${widths[index]}"/>`)});
+      }
+    }
+    for (const picture of clone.querySelectorAll('[data-cell-image]')) {
+      const data = safeAttachment(picture.getAttribute('src'), true), rect = picture.getBoundingClientRect();
+      if (data) output.push(`<image href="${xml(data)}" x="${number(rect.left-origin.left)}" y="${number(rect.top-origin.top)}" width="${number(rect.width)}" height="${number(rect.height)}" preserveAspectRatio="xMidYMid meet"/>`);
+    }
+    for (const checkbox of clone.querySelectorAll('[data-cell-check]')) {
+      const rect = checkbox.getBoundingClientRect(), style = getComputedStyle(checkbox);
+      const checked = checkbox.dataset.checked === 'true', x = rect.left - origin.left, y = rect.top - origin.top;
+      output.push(`<g transform="translate(${number(x)} ${number(y)}) scale(${number(rect.width / 18)} ${number(rect.height / 18)})"><rect x=".75" y=".75" width="16.5" height="16.5" rx="4" fill="${checked ? xml(style.color) : 'none'}" stroke="${xml(style.color)}" stroke-width="1.5"/>${checked ? '<path d="m4.75 9 2.75 2.75 5.75-5.5" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>' : ''}</g>`);
+    }
+    for (const field of clone.querySelectorAll(":scope > h3, :scope > p, [data-cell-text]")) {
       const walker = document.createTreeWalker(field, NodeFilter.SHOW_TEXT);
       while (walker.nextNode()) {
         const textNode = walker.currentNode, style = getComputedStyle(textNode.parentElement);
@@ -142,6 +164,10 @@ function measuredText(source) {
 }
 
 function fallbackText(node, width, height, colors) {
+  if (node.content) {
+    const lines = [node.title, ...contentText(node.content).split('\n')];
+    return lines.map((line, index) => `<text x="22" y="${34+index*22}" font-family="Arial,sans-serif" font-size="${index?13:17}" fill="#303139">${xml(line)}</text>`).join('');
+  }
   const title = xml(node.title), note = xml(node.note);
   const frame = node.kind === "frame", x = frame ? 20 : width / 2, y = frame ? 28 : height / 2 - (note ? 4 : -4), anchor = frame ? "start" : "middle";
   return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-family="Arial,sans-serif" font-size="13" font-weight="600" ${colorAttributes(colors.text)}>${title}</text>${note ? `<text x="${x}" y="${y + 19}" text-anchor="${anchor}" font-family="Arial,sans-serif" font-size="10" ${colorAttributes(colors.note)}>${note}</text>` : ""}`;
@@ -153,9 +179,9 @@ export function createBoardSvg(nodes, edges, background = "white", elements = ne
   const { x, y, width, height } = bounds, ids = new Set(nodes.map(node => node.id));
   const backdrop = background === "transparent" ? "" : `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${background === "grid" ? "#f8f9fb" : "#fff"}"/>${background === "grid" ? `<defs><pattern id="export-grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#cfd2d9"/></pattern></defs><rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#export-grid)"/>` : ""}`;
   const renderNode = (node, index) => {
-    const size = nodeSize(node), [bg, border] = palettes[node.color] || palettes.white, colors = node.root ? rootColors(node) : { fill: bg, text: "#303139", note: "#777983" };
-    const rx = node.shape === "pill" ? size.height / 2 : node.shape === "rectangle" ? 2 : node.shape === "soft" ? 20 : 9;
-    const ellipse = ["circle", "ellipse"].includes(node.shape);
+    const size = nodeSize(node), [bg, border] = palettes[node.color] || palettes.white, colors = node.content ? { fill: '#fff', text: '#303139', note: '#777983' } : node.root ? rootColors(node) : { fill: bg, text: "#303139", note: "#777983" };
+    const rx = node.content ? 12 : node.shape === "pill" ? size.height / 2 : node.shape === "rectangle" ? 2 : node.shape === "soft" ? 20 : 9;
+    const ellipse = !node.content && ["circle", "ellipse"].includes(node.shape);
     const geometry = ellipse ? `<ellipse cx="${size.width / 2}" cy="${size.height / 2}" rx="${size.width / 2}" ry="${size.height / 2}"` : `<rect width="${size.width}" height="${size.height}" rx="${rx}"`;
     const clip = `export-node-${index}`;
     const content = measuredText(elements.get(String(node.id))) || fallbackText(node, size.width, size.height, colors);
@@ -166,7 +192,8 @@ export function createBoardSvg(nodes, edges, background = "white", elements = ne
     const weight = edge.weight === "bold" ? 3.5 : edge.weight === "thin" ? 1.25 : 2;
     const dash = edge.pattern === "dashed" ? ' stroke-dasharray="9 7"' : edge.pattern === "dotted" ? ' stroke-dasharray="2 7"' : "";
     const half = Math.min(90, Math.max(20, (edge.label || "").length * 2.85 + 8));
-    const label = edge.label && edge.control ? `<rect x="${edge.control.x - half}" y="${edge.control.y - 11}" width="${half * 2}" height="22" rx="7" fill="white" stroke="#e4e1e9"/><text x="${edge.control.x}" y="${edge.control.y + 3.5}" text-anchor="middle" fill="#73717d" font-family="Arial,sans-serif" font-size="10">${xml(edge.label.length > 28 ? `${edge.label.slice(0, 27)}…` : edge.label)}</text>` : "";
+    const labelPoint = edge.labelPoint || edge.control;
+    const label = edge.label && labelPoint ? `<rect x="${labelPoint.x - half}" y="${labelPoint.y - 11}" width="${half * 2}" height="22" rx="7" fill="white" stroke="#e4e1e9"/><text x="${labelPoint.x}" y="${labelPoint.y + 3.5}" text-anchor="middle" fill="#73717d" font-family="Arial,sans-serif" font-size="10">${xml(edge.label.length > 28 ? `${edge.label.slice(0, 27)}…` : edge.label)}</text>` : "";
     return `<g><path d="${xml(edge.path)}" fill="none" stroke="#aeb1ba" stroke-width="${weight}" stroke-linecap="round" stroke-linejoin="round"${dash}/>${label}</g>`;
   }).join("");
   const shapes = nodes.map((node, index) => node.kind !== "frame" ? renderNode(node, index) : "").join("");

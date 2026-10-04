@@ -95,7 +95,7 @@ export default function VersionPreview({ version, renderNode, onClose, onRestore
       {graph.nodes.length ? <div className={styles.world} inert aria-hidden="true" style={{ transform: `translate(${transform.x}px,${transform.y}px) scale(${transform.scale})` }}>
         <svg className={styles.connections}>{graph.edges.map(edge => <g key={edge.id} className={`${canvasStyles[`${edge.pattern}Edge`] || ""} ${canvasStyles[`${edge.weight}Edge`] || ""}`}>
           <path className={canvasStyles.edgeLine} d={edge.path}/>
-          {edge.label && <g className={canvasStyles.edgeLabel} transform={`translate(${edge.control.x},${edge.control.y})`}><rect x={-Math.min(90, Math.max(20, edge.label.length * 2.85 + 8))} y="-11" width={Math.min(180, Math.max(40, edge.label.length * 5.7 + 16))} height="22" rx="7"/><text textAnchor="middle" dominantBaseline="central">{edge.label.length > 28 ? `${edge.label.slice(0, 27)}…` : edge.label}</text></g>}
+          {edge.label && <g className={canvasStyles.edgeLabel} transform={`translate(${edge.labelPoint.x},${edge.labelPoint.y})`}><rect x={-Math.min(90, Math.max(20, edge.label.length * 2.85 + 8))} y="-11" width={Math.min(180, Math.max(40, edge.label.length * 5.7 + 16))} height="22" rx="7"/><text textAnchor="middle" dominantBaseline="central">{edge.label.length > 28 ? `${edge.label.slice(0, 27)}…` : edge.label}</text></g>}
         </g>)}</svg>
         {graph.nodes.map(renderNode)}
       </div> : <div className={styles.empty}><Icon name="frame" size={30}/><b>{graph.totalCount ? "All items are hidden" : "This version is empty"}</b><p>No visible shapes in this saved version.</p></div>}

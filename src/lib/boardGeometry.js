@@ -1,4 +1,5 @@
 import { nodeSize } from "./boardAppearance.js";
+import { connectionLabelPlacement } from "./connectionLabels.js";
 
 const rotatedPoint = (node, x, y, width, height) => {
   const radians = (node.rotate || 0) * Math.PI / 180;
@@ -11,8 +12,19 @@ const rotatedPoint = (node, x, y, width, height) => {
 };
 
 const roundedOrthogonalPath = (rawPoints, radius = 13) => {
-  const points=rawPoints.filter((point,index)=>index===0||point.x!==rawPoints[index-1].x||point.y!==rawPoints[index-1].y);
-  if(points.length<2)return "";
+  const points=[];
+  for(const point of rawPoints){
+    // Collapsed bends can produce A → B → A or overshoot a later bend on the
+    // same axis. Remove those retraced segments before rounding any corners.
+    while(points.length){
+      const last=points.at(-1),previous=points.at(-2);
+      if(last.x===point.x&&last.y===point.y){points.pop();continue}
+      if(previous&&((previous.x===last.x&&last.x===point.x)||(previous.y===last.y&&last.y===point.y))){points.pop();continue}
+      break;
+    }
+    points.push(point);
+  }
+  if(points.length<2)return points.length?`M${points[0].x},${points[0].y} L${points[0].x},${points[0].y}`:"";
   if(radius<=0)return points.slice(1).reduce((path,point)=>`${path} L${point.x},${point.y}`,`M${points[0].x},${points[0].y}`);
   let path=`M${points[0].x},${points[0].y}`;
   for(let index=1;index<points.length-1;index+=1){
@@ -67,6 +79,8 @@ export function boardEdgeData(nodes, edges, globalSettings = {}, visibleNodeIds 
     const alignedElbow=structure==="elbow"&&edge.controlX===undefined&&(horizontal?Math.abs(start.y-end.y)<=16:Math.abs(start.x-end.x)<=16);
     if(structure==="straight"||alignedElbow||(structure==="curve"&&edge.controlX===undefined)){control={x:(start.x+end.x)/2,y:(start.y+end.y)/2};routeX=control.x;routeY=control.y;handles=[{...control,mode:"free"}]}else if(structure==="elbow"&&horizontal){const approach=end.x-(forward?48:-48);handles=[{x:routeX,y:(start.y+routeY)/2,mode:"x"},{x:(routeX+approach)/2,y:routeY,mode:"y"}]}else if(structure==="elbow"){const approach=end.y-(forward?48:-48);handles=[{x:(start.x+routeX)/2,y:routeY,mode:"y"},{x:routeX,y:(routeY+approach)/2,mode:"x"}]}else handles=[{...control,mode:"free"}];
     const path=structure==="straight"||alignedElbow?`M${start.x},${start.y} L${end.x},${end.y}`:structure==="elbow"?elbow:curve;
-    return{...edge,path,structure,pattern,weight,start,end,control,handles,routeX,routeY,horizontal};
+    const labelObstacles=[...handles,{...start,mode:"endpoint"},{...end,mode:"endpoint"}];
+    const placement=connectionLabelPlacement(path,edge.labelPosition,edge.label,labelObstacles);
+    return{...edge,path,structure,pattern,weight,start,end,control,labelPoint:placement.point,labelPosition:placement.position,labelObstacles,handles,routeX,routeY,horizontal};
   });
 }

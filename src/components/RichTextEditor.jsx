@@ -3,11 +3,13 @@ import { createPortal } from "react-dom";
 import useMediaQuery from "../lib/useMediaQuery";
 import styles from "../styles/canvas.module.css";
 import Icon from "./BoardIcon";
+import CellSlashMenu from './CellSlashMenu';
+import { commandQuery } from '../lib/cellContent';
 
 const commands = ["bold", "italic", "underline", "strikeThrough", "insertOrderedList", "insertUnorderedList"];
 const stopPropagation = event => event.stopPropagation();
 
-export default function RichTextEditor({ node, onChange, onFinish }) {
+export default function RichTextEditor({ node, onChange, onFinish, onUpgrade }) {
   const rootRef = useRef(null);
   const mobileDialogRef = useRef(null);
   // Keep the same editor DOM during rotation so the caret and draft survive.
@@ -20,6 +22,7 @@ export default function RichTextEditor({ node, onChange, onFinish }) {
   const prompting = useRef(false);
   const [initialContent] = useState(() => ({ ...node }));
   const [activeFormats, setActiveFormats] = useState({});
+  const [slash, setSlash] = useState(null);
 
   useLayoutEffect(() => {
     const dialog = mobileDialogRef.current;
@@ -80,7 +83,7 @@ export default function RichTextEditor({ node, onChange, onFinish }) {
   useEffect(() => {
     const outside = event => {
       const surface = mobileDialogRef.current || rootRef.current?.closest("article");
-      if (!surface?.contains(event.target)) finish();
+      if (!surface?.contains(event.target) && !event.target.closest('[data-cell-menu]')) finish();
     };
     document.addEventListener("pointerdown", outside, true);
     return () => document.removeEventListener("pointerdown", outside, true);
@@ -127,7 +130,22 @@ export default function RichTextEditor({ node, onChange, onFinish }) {
     } else restoreSelection();
   };
 
-  const input = () => { rememberSelection(); commit(); };
+  const input = () => {
+    rememberSelection(); commit();
+    const selection = window.getSelection(), text = selection?.focusNode;
+    if (!onUpgrade || text?.nodeType !== 3 || !noteRef.current.contains(text)) { setSlash(null); return; }
+    const query = commandQuery(text.textContent, selection.focusOffset);
+    if (!query) { setSlash(null); return; }
+    const range = document.createRange(); range.setStart(text, query.start); range.setEnd(text, query.end);
+    setSlash({ query: query.query, range, anchor: { element: noteRef.current } });
+  };
+  const insertBlock = type => {
+    slash?.range?.deleteContents();
+    const draft = { title: titleRef.current.innerText.trim() || 'Untitled', titleHtml: titleRef.current.innerHTML, note: noteRef.current.innerText.trim(), noteHtml: noteRef.current.innerHTML };
+    finishing.current = true;
+    onUpgrade(node.id, draft, type);
+    setSlash(null);
+  };
   const keyDown = event => {
     event.stopPropagation();
     if (event.key === "Escape" && !event.isComposing && !event.nativeEvent.isComposing) {
@@ -158,11 +176,13 @@ export default function RichTextEditor({ node, onChange, onFinish }) {
       {button("formatBlock", "Code block", "</>", "pre")}
       <span/>
       {button("removeFormat", "Clear formatting", "Tx")}
+      {onUpgrade && <><span/><button type="button" title="Insert content — type / in the note" aria-label="Insert content" onClick={() => setSlash({ query: '', anchor: { element: noteRef.current } })}>/</button></>}
     </div>
     {mobile && <span className={styles.mobileEditorLabel}>Title</span>}
     <div ref={titleRef} className={styles.richTitle} contentEditable suppressContentEditableWarning role="textbox" aria-label="Shape title" aria-multiline="true" data-field="title" onInput={input} onPointerUp={rememberSelection} onKeyUp={rememberSelection}/>
     {mobile && <span className={styles.mobileEditorLabel}>Note</span>}
     <div ref={noteRef} className={styles.richNote} contentEditable suppressContentEditableWarning role="textbox" aria-label="Shape note" aria-multiline="true" data-field="note" onInput={input} onPointerUp={rememberSelection} onKeyUp={rememberSelection}/>
+    {slash && <CellSlashMenu key={slash.query} query={slash.query} anchor={slash.anchor} onChoose={insertBlock} onClose={() => setSlash(null)}/>}
   </div>;
   return mobile ? createPortal(<dialog ref={mobileDialogRef} className={styles.mobileEditor} aria-label="Edit shape" onCancel={event => { event.preventDefault(); finish(); }} onKeyDown={stopPropagation} onKeyUp={stopPropagation}>{editor}</dialog>, document.body) : editor;
 }

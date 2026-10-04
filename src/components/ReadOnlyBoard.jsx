@@ -117,7 +117,7 @@ export default function ReadOnlyBoard({ project }) {
       {graph.nodes.length ? <div className={styles.world} style={{ transform: `translate(${transform.x}px,${transform.y}px) scale(${transform.scale})` }}>
         <svg className={styles.connections} aria-hidden="true">{graph.edges.map(edge => <g key={edge.id} className={`${canvasStyles[`${edge.pattern}Edge`] || ""} ${canvasStyles[`${edge.weight}Edge`] || ""}`}>
           <path className={canvasStyles.edgeLine} d={edge.path}/>
-          {edge.label && <g className={canvasStyles.edgeLabel} transform={`translate(${edge.control.x},${edge.control.y})`}><rect x={-Math.min(90, Math.max(20, edge.label.length * 2.85 + 8))} y="-11" width={Math.min(180, Math.max(40, edge.label.length * 5.7 + 16))} height="22" rx="7"/><text textAnchor="middle" dominantBaseline="central">{edge.label.length > 28 ? `${edge.label.slice(0, 27)}…` : edge.label}</text></g>}
+          {edge.label && <g className={canvasStyles.edgeLabel} transform={`translate(${edge.labelPoint.x},${edge.labelPoint.y})`}><rect x={-Math.min(90, Math.max(20, edge.label.length * 2.85 + 8))} y="-11" width={Math.min(180, Math.max(40, edge.label.length * 5.7 + 16))} height="22" rx="7"/><text textAnchor="middle" dominantBaseline="central">{edge.label.length > 28 ? `${edge.label.slice(0, 27)}…` : edge.label}</text></g>}
         </g>)}</svg>
         {graph.nodes.map(node => <Node key={node.id} node={node} readOnly selected={selectedId === node.id} onSelect={setSelectedId}
           childCount={project.board.edges.filter(edge => edge.from === node.id).length}

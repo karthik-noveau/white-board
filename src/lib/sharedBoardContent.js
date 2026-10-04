@@ -1,4 +1,5 @@
 import DOMPurify from "dompurify";
+import { normalizeCellContent } from './cellContent';
 
 const richTextTags = ["b", "strong", "i", "em", "u", "s", "strike", "del", "br", "div", "p", "span", "ul", "ol", "li", "blockquote", "pre", "code", "a", "font", "sub", "sup"];
 const textStyles = new Set(["color", "background-color", "font-size", "font-family", "font-weight", "font-style", "text-decoration", "text-align", "line-height", "letter-spacing", "white-space"]);
@@ -29,6 +30,7 @@ export function sanitizeSharedProject(project) {
 function sanitizeBoard(board) {
   return { ...board, nodes: board.nodes.map(node => ({
     ...node,
+    ...(node.content != null ? { content: normalizeCellContent(node.content) } : {}),
     ...(node.titleHtml != null ? { titleHtml: cleanRichText(node.titleHtml) } : {}),
     ...(node.noteHtml != null ? { noteHtml: cleanRichText(node.noteHtml) } : {}),
     ...(node.links ? { links: node.links.filter(link => /^(https?:\/\/|mailto:|tel:)/i.test(link.url)) } : {}),

@@ -1,3 +1,5 @@
+import { normalizeCellContent } from './cellContent.js';
+
 export const MAX_SHARE_BYTES = 8 * 1024 * 1024;
 export const MAX_SHARE_URL_LENGTH = 1_000_000;
 const invalidLink = "This share link is invalid or incomplete. Ask for a new link.";
@@ -32,7 +34,8 @@ function validateBoard(board, snapshot = false) {
     for (const key of ["title", "note", "titleHtml", "noteHtml", "color", "shape", "kind", "status", "priority", "dueDate"]) {
       if (!optional(node[key], isText)) fail();
     }
-    for (const key of ["w", "h", "rotate"]) if (!optional(node[key], isNumber)) fail();
+    for (const key of ["w", "h", "rotate", "contentHeight"]) if (!optional(node[key], isNumber)) fail();
+    if (node.content != null) { try { normalizeCellContent(node.content); } catch { fail(); } }
     if (!optional(node.tags, value => Array.isArray(value) && value.every(isText))) fail();
     if (!optional(node.comments, value => records(value) && value.every(comment => isId(comment.id) && isText(comment.text) && isNumber(comment.createdAt)))) fail();
     if (!optional(node.links, value => records(value) && value.every(link => isText(link.url) && optional(link.label, isText)))) fail();
@@ -43,6 +46,7 @@ function validateBoard(board, snapshot = false) {
     edgeIds.add(edge.id);
     for (const key of ["side", "structure", "pattern", "weight", "label", "type"]) if (!optional(edge[key], isText)) fail();
     for (const key of ["controlX", "controlY"]) if (!optional(edge[key], isNumber)) fail();
+    if (!optional(edge.labelPosition, value => isNumber(value) && value >= 0 && value <= 1)) fail();
   }
   for (const key of ["savedViews", "automationRules", "customFields", "teamMembers", "goals", "sprints"]) {
     if (!optional(board[key], records)) fail();

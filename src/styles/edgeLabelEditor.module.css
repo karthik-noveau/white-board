@@ -1,0 +1,19 @@
+.editor.editor {
+  position: absolute;
+  z-index: 46;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  outline: none;
+  background: transparent;
+  color: #5e43aa;
+  box-shadow: none;
+  letter-spacing: .01em;
+  text-align: center;
+  cursor: text;
+  appearance: none;
+}
+.editor.editor:focus-visible { outline: none;box-shadow: none; }
+.editor::placeholder { color: var(--nova-muted);font-weight: 600; }

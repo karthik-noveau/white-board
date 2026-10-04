@@ -7,16 +7,16 @@ import styles from "../styles/boardTour.module.css";
 
 const steps = [
   {
-    target: "tool-box", icon: "box", title: "Add a shape",
-    description: "Click Shape to add. Double-click its text to edit.",
+    target: "tool-box", icon: "box", title: "Add a cell",
+    description: "Click Cell to add. Double-click to edit its content.",
   },
   {
     target: "tool-link", icon: "link", title: "Connect ideas",
     description: "Choose Connect, then click two shapes.",
   },
   {
-    target: "tool-frame", icon: "frame", title: "Organize with frames",
-    description: "Create a named section for related ideas.",
+    target: "tool-box", icon: "text", title: "Build inside a cell",
+    description: "Type / to add tables, checklists, images, code and more. Table cells support blocks too.",
   },
   {
     target: "styles", icon: "palette", title: "Style a branch",

@@ -1017,3 +1017,26 @@
 @media(max-width:520px){
   .focusBarLabel{display:none}
 }
+
+/* Mixed-content cells grow with their document while connections use measured bounds. */
+.node.contentNode{padding:0;display:block;min-width:320px;min-height:100px;text-align:left;border-radius:12px!important;overflow:visible;background:var(--nova-surface)!important;border-color:var(--nova-border-strong);box-shadow:0 2px 5px #17112405,0 8px 22px #17112408}
+.contentNode.selectedNode{border-color:var(--nova-primary)!important}
+.contentNode .nodeGlyph,.contentNode .nodeAccent{display:none}
+.contentNode .nodeComments{bottom:auto;top:-12px;right:14px}
+.contentNode .nodeProgress{bottom:0}
+.contentNode .nodeDue,.contentNode .nodeStatus{bottom:-12px}
+.contentNode .transformControls{pointer-events:none}
+.contentNode .transformControls .resizeHandle,.contentNode .transformControls .rotateHandle{pointer-events:auto}
+.presenting .contentNode [data-cell-content]{pointer-events:auto}
+
+/* Connection settings share the compact floating toolbar layout. */
+.presenting .connectionDock { display:none; }
+@media(max-width:760px) { .stage:has(.connectionDock) .zoom { display:none; } }
+
+/* Labels remain part of their connection and open an editor at the same point. */
+/* SVG can receive pointer focus without matching :focus-visible. Keep its
+   native outline off in every state and use the existing pill for feedback. */
+.edges .edgeLabel,.edges .edgeLabel:focus,.edges .edgeLabel:focus-visible { outline:none; }
+.edges .editableEdgeLabel { pointer-events:all;cursor:grab;touch-action:none;user-select:none; }
+.edges .draggingEdgeLabel { cursor:grabbing; }
+.edges .editableEdgeLabel:focus-visible rect { stroke:var(--nova-primary); }

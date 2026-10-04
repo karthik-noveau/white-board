@@ -1,0 +1,96 @@
+.dock {
+  position: absolute;
+  z-index: 45;
+  top: 18px;
+  left: 50%;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  transform: translateX(-50%);
+  color: var(--nova-text);
+  font-size: var(--nova-text-sm);
+  line-height: 20px;
+}
+
+.rail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border: 1px solid var(--nova-border);
+  border-radius: 14px;
+  background: var(--nova-surface);
+  box-shadow: var(--nova-popover-shadow);
+}
+.rail::-webkit-scrollbar { display: none; }
+.dock button { font: inherit; cursor: pointer; }
+.rail button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-weight: 550;
+  white-space: nowrap;
+  transition: background .14s, color .14s;
+}
+.dock svg { flex: none; }
+.rail button:disabled { opacity: .4; cursor: default; }
+.rail button:hover:not(:disabled) { background: var(--nova-surface-tint); color: var(--nova-primary); }
+.rail button.active { background: var(--nova-primary-soft); color: var(--nova-primary); }
+.separator { flex: none; width: 1px; height: 24px; margin-inline: 2px; background: var(--nova-border); }
+.rail .deleteButton { width: 40px; padding: 0; color: var(--nova-muted); }
+.rail .deleteButton:hover { background: #fff0f2; color: #d33550; }
+.dock button:focus-visible { outline: 2px solid var(--nova-primary); outline-offset: -2px; }
+
+.popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  width: 296px;
+  max-width: 100%;
+  padding: 8px;
+  border: 1px solid var(--nova-border);
+  border-radius: 14px;
+  background: var(--nova-surface);
+  box-shadow: var(--nova-popover-shadow);
+}
+.heading { padding: 6px 8px 10px; color: var(--nova-ink); font-weight: 600; }
+.options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.options button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 68px;
+  padding: 10px 4px;
+  border: 1px solid var(--nova-border);
+  border-radius: 9px;
+  background: var(--nova-surface);
+  color: inherit;
+}
+.options button:hover { border-color: var(--nova-primary-border); background: var(--nova-surface-tint); }
+.options button[aria-pressed="true"] { border-color: var(--nova-primary-border); background: var(--nova-primary-soft); color: var(--nova-primary); }
+.lineSample { display: flex; align-items: center; width: 28px; height: 20px; }
+.lineSample::after { content: ""; width: 100%; border-top: var(--sample-weight) var(--sample-pattern) currentColor; }
+.relations { display: grid; gap: 2px; }
+.relations button { display: flex; align-items: center; justify-content: space-between; min-height: 40px; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; text-align: left; }
+.relations button:hover { background: var(--nova-surface-tint); }
+.relations button[aria-pressed="true"] { background: var(--nova-primary-soft); color: var(--nova-primary); }
+.relations button[aria-pressed="false"] svg { visibility: hidden; }
+
+@media (max-width: 760px) {
+  .dock { top: 8px; max-width: calc(100% - 16px); }
+  .rail { gap: 2px; padding: 5px; border-radius: 12px; }
+  .rail button { gap: 6px; min-height: 44px; padding-inline: 10px; }
+  .rail .deleteButton { width: 44px; }
+  .relations button { min-height: 44px; }
+}

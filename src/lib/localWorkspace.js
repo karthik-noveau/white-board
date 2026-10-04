@@ -1,3 +1,5 @@
+import { normalizeCellContent } from './cellContent';
+
 const DB_NAME = "nova-workspace";
 const DB_VERSION = 1;
 const PROJECTS = "projects";
@@ -52,6 +54,7 @@ function normalizeProject(project) {
     accent: "violet",
     created: project.created || project.updated || now,
     ...project,
+    ...(project.board ? { board: { ...project.board, nodes: project.board.nodes.map(node => node.content ? { ...node, content: normalizeCellContent(node.content) } : node) } } : {}),
     updated: project.updated || now,
     schemaVersion: 1,
   };

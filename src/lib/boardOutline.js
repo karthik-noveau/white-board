@@ -1,3 +1,5 @@
+import { contentText } from './cellContent.js';
+
 /** Filter board items while keeping a matching shape's frame as context. */
 export function filterBoardOutline(nodes, query = "", filter = "all") {
   const needle = query.trim().toLowerCase();
@@ -9,7 +11,7 @@ export function filterBoardOutline(nodes, query = "", filter = "all") {
     const matchesFilter = filter === "all" || (filter === "shapes" && node.kind !== "frame") ||
       (filter === "frames" && node.kind === "frame") || (filter === "locked" && node.locked) ||
       (filter === "hidden" && hidden);
-    const searchable = [node.title, node.note, node.status, node.priority, ...(node.tags || [])].filter(Boolean).join(" ").toLowerCase();
+    const searchable = [node.title, node.content ? contentText(node.content) : node.note, node.status, node.priority, ...(node.tags || [])].filter(Boolean).join(" ").toLowerCase();
     return matchesFilter && searchable.includes(needle);
   });
   const matchedIds = new Set(matches.map(node => node.id));

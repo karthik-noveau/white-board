@@ -9,6 +9,6 @@ export const rootColors = node => {
 };
 
 export const nodeSize = node => ({
-  width: node.w || (node.shape==="circle" ? (node.root ? 144 : 124) : node.root ? 252 : 228),
-  height: node.h || (node.shape==="circle" ? (node.root ? 144 : 124) : node.root ? 108 : 92),
+  width: node.content ? Math.max(320,node.w||380) : node.w || (node.shape==="circle" ? (node.root ? 144 : 124) : node.root ? 252 : 228),
+  height: node.content ? Math.max(100,node.h||0,node.contentHeight||120) : node.h || (node.shape==="circle" ? (node.root ? 144 : 124) : node.root ? 108 : 92),
 });

@@ -1,0 +1,1 @@
+export const CODE_LANGUAGES = ['Plain text', 'JavaScript', 'TypeScript', 'JSX', 'TSX', 'HTML', 'CSS', 'SCSS', 'JSON', 'YAML', 'Markdown', 'Python', 'SQL', 'GraphQL', 'Shell', 'Bash', 'Go', 'Rust', 'Java', 'Kotlin', 'C', 'C++', 'C#', 'Swift', 'Ruby', 'PHP', 'Dart', 'Dockerfile', 'XML'];

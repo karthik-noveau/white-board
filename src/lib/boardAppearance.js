@@ -8,7 +8,15 @@ export const rootColors = node => {
   return {fill:solid?(color==="violet"?"#6436dc":accent):background,text:solid?"#ffffff":"#151621",note:solid?"rgba(255,255,255,.88)":"#5f687b",editor:solid?"rgba(255,255,255,.1)":"rgba(25,25,32,.04)"};
 };
 
-export const nodeSize = node => ({
-  width: node.content ? Math.max(320,node.w||380) : node.w || (node.shape==="circle" ? (node.root ? 144 : 124) : node.root ? 252 : 228),
-  height: node.content ? Math.max(100,node.h||0,node.contentHeight||120) : node.h || (node.shape==="circle" ? (node.root ? 144 : 124) : node.root ? 108 : 92),
-});
+export const isCardContent = node => Boolean(node.content && node.contentLayout === "card");
+export const isCardText = node => isCardContent(node) && node.content.every(block => block.type === "text");
+
+export const nodeSize = node => {
+  const width = node.w || (node.shape === "circle" ? (node.root ? 144 : 124) : node.root ? 252 : 228);
+  const height = node.h || (node.shape === "circle" ? (node.root ? 144 : 124) : node.root ? 108 : 92);
+  if (isCardContent(node)) return { width, height: Math.max(height, node.contentHeight || 0) };
+  return {
+    width: node.content ? Math.max(320, node.w || 380) : width,
+    height: node.content ? Math.max(100, node.h || 0, node.contentHeight || 120) : height,
+  };
+};

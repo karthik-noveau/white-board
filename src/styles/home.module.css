@@ -350,3 +350,4 @@
 .templateCard { display:flex;flex-direction:column; }
 .templateCard .templatePreview { width:calc(100% - 14px);flex-shrink:0; }
 .templateCard>span { flex:1; }
+@media(max-width:700px),(pointer:coarse){.dialog{position:fixed;inset:calc(var(--app-top,0px) + 12px) 0 auto;margin:0 auto;max-height:calc(var(--app-height,100dvh) - 24px);}.dialog :is(input,textarea,select){font-size:16px;}.dialog button{min-height:44px;}}

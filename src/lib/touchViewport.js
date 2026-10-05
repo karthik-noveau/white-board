@@ -25,3 +25,9 @@ export function updatePinch(gesture, points) {
 export function beginTouchPan(pointerId, point, transform) {
   return { type: "pan", pointerId, sx: point.x, sy: point.y, x: transform.x, y: transform.y, touch: true };
 }
+
+export function zoomAtPoint(transform, point, requestedScale) {
+  const scale = Math.max(.01, Math.min(4, requestedScale));
+  const ratio = scale / transform.scale;
+  return { scale, x: point.x - (point.x - transform.x) * ratio, y: point.y - (point.y - transform.y) * ratio };
+}

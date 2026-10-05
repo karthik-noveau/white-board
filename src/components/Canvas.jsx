@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import VersionPreview from "./VersionPreview";
 import { boardEdgeData, inferConnectionSide } from "../lib/boardGeometry";
 import { closestLabelPosition, connectionLabelPoint, connectionLabelPlacement } from "../lib/connectionLabels";
@@ -9,23 +9,25 @@ import CellContent from "./CellContent";
 import { textBlock, upgradeCell, contentText, replaceContentText } from "../lib/cellContent";
 import Icon from "./BoardIcon";
 import MotionPresence from "./MotionPresence";
+import { captureToolbarLayout, playToolbarExit, playToolbarSwitch } from "../lib/motion";
 import useDeleteConfirmation from "../lib/useDeleteConfirmation";
 import { nearbyBoardNode, navigateToolbar } from "../lib/boardKeyboard";
 import { createSaveStatus } from "../lib/saveStatus";
 import CanvasControlIcon from "./CanvasControlIcon";
 import BoardStyleIcon from "./BoardStyleIcon";
 import ConnectionToolbar from "./ConnectionToolbar";
+import StyleScopePicker, { StyleScopeSummary } from "./StyleScopePicker";
 import EdgeLabelEditor from "./EdgeLabelEditor";
 import CanvasContextMenu from "./CanvasContextMenu";
 import BoardTour from "./BoardTour";
 import ExportStudio from "./ExportStudio";
 import ShareBoard from "./ShareBoard";
 import CommentsPanel from "./CommentsPanel";
-import { palettes, rootColors, nodeSize } from "../lib/boardAppearance";
+import { palettes, rootColors, nodeSize, isCardContent } from "../lib/boardAppearance";
 import { createBoardSvg, selectExportNodes, exportVisualFile } from "../lib/boardExport";
 import { boardTourPreference } from "../lib/boardTour";
 import { branchStyleScope, branchStyleSettings, applyBranchStyle, childBranchStyle } from "../lib/branchStyles";
-import { beginPinch, updatePinch, beginTouchPan } from "../lib/touchViewport";
+import { beginPinch, updatePinch, beginTouchPan, zoomAtPoint } from "../lib/touchViewport";
 import { zoomByWheel } from "../lib/wheelViewport";
 import { createNodeDrag, moveDraggedNodes, moveDraggedEdges } from "../lib/nodeDrag";
 import { filterBoardOutline } from "../lib/boardOutline";
@@ -411,7 +413,7 @@ export function Node({ node, selected, transformable, connecting, editing, child
   // between pointerdown and pointerup prevents clicks/double-clicks from firing.
   const titleMarkup=useMemo(()=>({__html:node.titleHtml}),[node.titleHtml]);
   const noteMarkup=useMemo(()=>({__html:node.noteHtml}),[node.noteHtml]);
-  return <article aria-label={`${node.kind==="frame"?"Frame":"Shape"}: ${node.title||"Untitled"}${selected?", selected":""}${node.locked?", locked":""}`} data-export-node={node.id} className={`${styles.node} ${node.kind==="frame"?styles.frameNode:""} ${node.content?styles.contentNode:""} ${node.locked?styles.lockedNode:""} ${node.root?styles.rootNode:""} ${selected?styles.selectedNode:""} ${connecting?styles.connectingNode:""} ${editing?styles.editingNode:""} ${styles[node.shape]}`} style={{width:size.width,height:size.height,transform:`translate(${node.x}px,${node.y}px) rotate(${node.rotate||0}deg)`,background:node.content?"var(--nova-surface)":node.root?root.fill:bg,borderColor:selected?accent:border,"--accent":accent,"--root-text":root.text,"--root-note":root.note,"--root-editor":root.editor}} onPointerDown={readOnly?undefined:e=>onDrag?.(e,node)} onClick={e=>{e.stopPropagation();onSelect?.(node.id,e.shiftKey||e.metaKey||e.ctrlKey)}} onDoubleClick={e=>{e.stopPropagation();if(!readOnly)onEdit?.(node.id)}}>
+  return <article aria-label={`${node.kind==="frame"?"Frame":"Shape"}: ${node.title||"Untitled"}${selected?", selected":""}${node.locked?", locked":""}`} data-export-node={node.id} className={`${styles.node} ${node.kind==="frame"?styles.frameNode:""} ${node.content?styles.contentNode:""} ${isCardContent(node)?styles.contentCard:""} ${node.locked?styles.lockedNode:""} ${node.root?styles.rootNode:""} ${selected?styles.selectedNode:""} ${connecting?styles.connectingNode:""} ${editing?styles.editingNode:""} ${styles[node.shape]}`} style={{width:size.width,height:size.height,transform:`translate(${node.x}px,${node.y}px) rotate(${node.rotate||0}deg)`,background:node.content&&!isCardContent(node)?"var(--nova-surface)":node.root?root.fill:bg,borderColor:selected?accent:border,"--accent":accent,"--root-text":root.text,"--root-note":root.note,"--root-editor":root.editor,"--card-text":node.root?root.text:"#202027","--card-note":node.root?root.note:"var(--nova-muted)"}} onPointerDown={readOnly?undefined:e=>onDrag?.(e,node)} onClick={e=>{e.stopPropagation();onSelect?.(node.id,e.shiftKey||e.metaKey||e.ctrlKey)}} onDoubleClick={e=>{e.stopPropagation();if(!readOnly)onEdit?.(node.id)}}>
     {node.locked&&<div className={styles.nodeLock}><Icon name="lock" size={11}/></div>}
     <div className={styles.nodeBadges}>
     {!!node.links?.length&&<div className={styles.nodeLinks}><Icon name="link" size={11}/><b>{node.links.length}</b></div>}
@@ -448,7 +450,13 @@ export function Node({ node, selected, transformable, connecting, editing, child
   </article>;
 }
 
-function SelectionBar({ node, selectionCount, grouped, locked, allLocked, onColor, onDuplicate, onDelete, onShape, onGroup, onUngroup, onLock, onArrange, onComments, onFocus, onEdit, onAddChild, onDone }) {
+function AppearanceOptions({ section, settings, onChange, disabled=false, branch=false }) {
+  if(section==="shape")return <div className={styles.appearanceShapes}>{shapeOptions.map(([value,label])=><button key={value} disabled={disabled} aria-pressed={settings.shape===value} onClick={()=>onChange("shape",value)}><i className={`${styles.shapePreview} ${styles[`shapePreview${value[0].toUpperCase()}${value.slice(1)}`]}`}/><span>{label}</span></button>)}</div>;
+  if(section==="color")return <div className={styles.appearanceColors}>{Object.keys(palettes).map(color=><button key={color} disabled={disabled} aria-pressed={settings.color===color} onClick={()=>onChange("color",color)} aria-label={`${color}${branch?" branch":""} color`} title={`${color[0].toUpperCase()+color.slice(1)} fill`}><i style={{background:palettes[color][1]}}/></button>)}</div>;
+  return null;
+}
+
+function SelectionBar({ node, selectionCount, grouped, locked, allLocked, scopeProps, onColor, onDuplicate, onDelete, onShape, onGroup, onUngroup, onLock, onArrange, onComments, onFocus, onEdit, onAddChild, onDone }) {
   const [menu,setMenu]=useState(null),menuRef=useRef(null),triggerRef=useRef(null);
   useEffect(()=>{
     if(!menu)return;
@@ -458,16 +466,14 @@ function SelectionBar({ node, selectionCount, grouped, locked, allLocked, onColo
     return()=>{document.removeEventListener("pointerdown",close);document.removeEventListener("keydown",escape,true)};
   },[menu]);
   const toggle=(value,event)=>{triggerRef.current=event.currentTarget;setMenu(current=>current===value?null:value)};
-  const shapeLabel=shapeOptions.find(([value])=>value===node.shape)?.[1]||"Rounded";
-  const colors=<div className={styles.colorRow}>{Object.keys(palettes).map(color=><button key={color} disabled={locked} className={node.color===color?styles.chosenColor:""} style={{background:palettes[color][1]}} onClick={()=>onColor(color)} aria-label={`${color} color`} aria-pressed={node.color===color} title={`${color[0].toUpperCase()+color.slice(1)} fill`}/>)}</div>;
-  return <div ref={menuRef} className={styles.selectionDock}>
-    <div data-keyboard-toolbar className={styles.selectionBar} aria-label="Selected shape actions">
-      {selectionCount>1&&<><b className={styles.selectionCount}>{selectionCount} selected</b><span/></>}
-      <button className={styles.mobileSelectionAction} disabled={locked||selectionCount>1} onClick={onEdit}><Icon name="text" size={18}/>Edit</button>
-      <div className={styles.desktopColors}>{colors}</div>
-      <button className={styles.mobileSelectionAction} disabled={locked} aria-expanded={menu==="color"} onClick={event=>toggle("color",event)}><Icon name="palette" size={18}/>Fill</button>
-      <span/>
-      <button disabled={locked} className={styles.shapePickerButton} aria-expanded={menu==="shape"} onClick={event=>toggle("shape",event)}><i className={`${styles.shapePreview} ${styles[`shapePreview${node.shape[0].toUpperCase()}${node.shape.slice(1)}`]}`}/><span className={styles.shapePickerLabel}>{shapeLabel}</span><svg className={styles.shapePickerChevron} width="10" height="6" viewBox="0 0 10 6" fill="none" aria-hidden="true"><path d="m1 1 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button><span/>
+  return <div ref={menuRef} className={styles.selectionDock} data-scope-toolbar>
+    <div data-keyboard-toolbar data-tour="styles" className={styles.selectionBar} role="toolbar" aria-label="Selected card settings and actions">
+      <div className={styles.scopeToolbarBackground} data-scope-background aria-hidden="true"/>
+      <StyleScopePicker {...scopeProps} onChoose={()=>setMenu(null)}/>
+      <div className={styles.scopeActionViewport}><div className={styles.selectionBarActions} data-scope-actions>
+      {[["shape","Shape"],["color","Color"]].map(([value,label])=><button key={value} data-scope-control={value} disabled={locked} className={styles.scopeStyleButton} aria-expanded={menu===value} title={`Change selected card ${value==="color"?"fill color":"shape"}`} onClick={event=>toggle(value,event)}><BoardStyleIcon name={value}/><span>{label}</span></button>)}
+      <span className={styles.toolbarActionSeparator} aria-hidden="true"/>
+      <button className={`${styles.mobileSelectionAction} ${styles.mobileEditAction}`} disabled={locked||selectionCount>1} onClick={onEdit}><Icon name="text" size={18}/>Edit</button>
       {selectionCount>1&&<button disabled={locked||grouped} className={styles.arrangeButton} aria-expanded={menu==="arrange"} title={grouped?"Ungroup shapes before arranging":"Align and distribute"} onClick={event=>toggle("arrange",event)}><Icon name="arrange" size={15}/>Arrange</button>}
       {selectionCount>1&&!grouped&&<button disabled={locked} title="Group selected shapes" onClick={onGroup}>Group</button>}
       {grouped&&<button disabled={locked} title="Ungroup selected shapes" onClick={onUngroup}>Ungroup</button>}
@@ -478,26 +484,26 @@ function SelectionBar({ node, selectionCount, grouped, locked, allLocked, onColo
       <button className={styles.selectionAction} title="Duplicate" aria-label="Duplicate" onClick={onDuplicate}><Icon name="duplicate" size={20}/></button>
       <button className={styles.selectionAction} disabled={locked} title="Delete" aria-label="Delete" onClick={onDelete}><Icon name="trash" size={19}/></button>
       <button className={`${styles.mobileSelectionAction} ${styles.selectionDone}`} onClick={onDone} aria-label="Deselect shapes">Done</button>
+      </div></div>
     </div>
-    <MotionPresence present={menu==="color"} kind="menu"><div className={styles.selectionColorMenu}>{colors}</div></MotionPresence>
-    <MotionPresence present={menu==="shape"} kind="menu"><div className={styles.selectionShapeMenu} aria-label="Shape options"><div className={styles.popoverHeading}>Shape</div>{shapeOptions.map(([value,label])=><button key={value} className={node.shape===value?styles.shapeOptionActive:""} aria-pressed={node.shape===value} onClick={()=>{onShape(value);setMenu(null)}}><i className={`${styles.shapePreview} ${styles[`shapePreview${value[0].toUpperCase()}${value.slice(1)}`]}`}/><span>{label}</span></button>)}</div></MotionPresence>
+    <StyleScopeSummary {...scopeProps} hidden={Boolean(menu)}/>
+    <MotionPresence present={menu==="shape"||menu==="color"} kind="menu"><div className={styles.scopeAppearanceMenu} aria-label={`${menu==="shape"?"Shape":"Color"} settings`}><div className={styles.popoverHeading}>{menu==="shape"?"Shape":"Color"} · {selectionCount>1?"selected cards":"selected card"}</div><AppearanceOptions section={menu} settings={node} disabled={locked} onChange={(key,value)=>{if(key==="shape"){onShape(value);setMenu(null)}else onColor(value)}}/></div></MotionPresence>
     <MotionPresence present={menu==="arrange"} kind="menu"><div className={styles.arrangeMenu} aria-label="Arrange shapes"><div className={styles.popoverHeading}>Arrange shapes</div>{[["tree","Smart tree layout"],["grid","Tidy into a grid"],["left","Align left"],["center","Align centers"],["right","Align right"],["top","Align top"],["middle","Align middles"],["bottom","Align bottom"],["horizontal","Distribute horizontally"],["vertical","Distribute vertically"]].map(([value,label])=><button key={value} className={value==="tree"||value==="grid"?styles.tidyAction:""} disabled={(value==="horizontal"||value==="vertical")&&selectionCount<3} onClick={()=>{onArrange(value);setMenu(null)}}>{(value==="tree"||value==="grid")&&<Icon name="layout" size={18}/>}<span>{label}</span></button>)}</div></MotionPresence>
   </div>;
 }
 
-function BranchStylePanel({ settings, section, onSection, onChange, scopeLabel, canStyleShapes, canStyleLines, disabledReason }) {
+function BranchStylePanel({ settings, section, onSection, onChange, scopeName, scopeProps, canStyleShapes, canStyleLines, disabledReason }) {
   const dockRef=useRef(null);
   const structures = [["curve","Curve"],["straight","Straight"],["elbow","Elbow"]];
   const patterns = [["solid","Solid"],["dashed","Dashed"],["dotted","Dotted"]];
   const weights = [["thin","Thin"],["regular","Regular"],["bold","Bold"]];
   const items=[["shape","Shape"],["color","Color"],["structure","Line"],["pattern","Line style"],["weight","Weight"]];
   useEffect(()=>{if(!section)return;const closeOnOutside=e=>{if(!dockRef.current?.contains(e.target))onSection(null)};document.addEventListener("pointerdown",closeOnOutside);return()=>document.removeEventListener("pointerdown",closeOnOutside)},[section,onSection]);
-  return <div ref={dockRef} className={styles.globalStyleDock} aria-label="Branch styles">
-    {!section&&<div className={styles.branchStyleHint} role="status">{scopeLabel}</div>}
-    <div data-keyboard-toolbar data-tour="styles" className={styles.globalStyleRail}>{items.map(([value,label])=><button key={value} disabled={value==="shape"||value==="color"?!canStyleShapes:!canStyleLines} className={section===value?styles.globalRailActive:""} onClick={()=>onSection(section===value?null:value)} aria-label={label} aria-expanded={section===value} title={disabledReason||((value==="shape"||value==="color")&&!canStyleShapes?"Select a branch to style":{shape:"Change branch shape",color:"Change branch fill color",structure:"Change branch line path",pattern:"Change branch line style",weight:"Change branch line thickness"}[value])}><BoardStyleIcon name={value}/><span>{label}</span></button>)}</div>
-    <MotionPresence present={Boolean(section&&(section==="shape"||section==="color"?canStyleShapes:canStyleLines))} kind="menu"><aside className={styles.globalPanel} aria-label={`${items.find(item=>item[0]===section)?.[1]} settings`}><div className={styles.popoverHeading}>{{shape:"Branch shape",color:"Branch color",structure:"Line path",pattern:"Line style",weight:"Line weight"}[section]}</div>
-      {section==="shape"&&<div className={styles.settingGroup}><div className={styles.shapeGrid}>{shapeOptions.map(([value,label])=><button key={value} className={settings.shape===value?styles.shapeOptionActive:""} aria-pressed={settings.shape===value} onClick={()=>onChange("shape",value)}><i className={`${styles.shapePreview} ${styles[`shapePreview${value[0].toUpperCase()}${value.slice(1)}`]}`}/><span>{label}</span></button>)}</div></div>}
-      {section==="color"&&<div className={styles.settingGroup}><div className={styles.globalColors}>{Object.keys(palettes).map(color=><button key={color} className={settings.color===color?styles.chosenGlobalColor:""} aria-pressed={settings.color===color} style={{background:palettes[color][1]}} onClick={()=>onChange("color",color)} aria-label={`${color} branch color`} title={`${color[0].toUpperCase()+color.slice(1)} branch fill`}/>)}</div></div>}
+  return <div ref={dockRef} className={`${styles.globalStyleDock} ${styles.contextStyleDock}`} data-scope-toolbar aria-label="Branch styles">
+    <div data-keyboard-toolbar data-tour="styles" className={styles.globalStyleRail} role="toolbar" aria-label="Entire branch settings"><div className={styles.scopeToolbarBackground} data-scope-background aria-hidden="true"/><StyleScopePicker {...scopeProps} onChoose={()=>onSection(null)}/><div className={styles.scopeActionViewport}><div className={styles.branchBarActions} data-scope-actions>{items.map(([value,label])=><button key={value} data-scope-control={value} disabled={value==="shape"||value==="color"?!canStyleShapes:!canStyleLines} className={styles.scopeStyleButton} onClick={()=>onSection(section===value?null:value)} aria-label={label} aria-expanded={section===value} title={disabledReason||((value==="shape"||value==="color")&&!canStyleShapes?"Select a branch to style":{shape:"Change branch shape",color:"Change branch fill color",structure:"Change branch line path",pattern:"Change branch line style",weight:"Change branch line thickness"}[value])}><BoardStyleIcon name={value}/><span>{label}</span></button>)}</div></div></div>
+    <StyleScopeSummary {...scopeProps} message={disabledReason} hidden={Boolean(section)}/>
+    <MotionPresence present={Boolean(section&&(section==="shape"||section==="color"?canStyleShapes:canStyleLines))} kind="menu"><aside className={styles.globalPanel} aria-label={`${items.find(item=>item[0]===section)?.[1]} settings`}><div className={styles.popoverHeading}>{{shape:"Shape",color:"Color",structure:"Line path",pattern:"Line style",weight:"Line weight"}[section]} · {scopeName.toLowerCase()}</div>
+      {(section==="shape"||section==="color")&&<AppearanceOptions section={section} settings={settings} branch disabled={!canStyleShapes} onChange={(key,value)=>{onChange(key,value);if(key==="shape")onSection(null)}}/>}
       {section==="structure"&&<div className={styles.settingGroup}><div className={styles.segmented}>{structures.map(([value,label])=><button key={value} className={settings.structure===value?styles.globalActive:""} aria-pressed={settings.structure===value} onClick={()=>onChange("structure",value)}><BoardStyleIcon name="structure" lineType={value}/>{label}</button>)}</div></div>}
       {section==="pattern"&&<div className={styles.settingGroup}><div className={styles.segmented}>{patterns.map(([value,label])=><button key={value} className={settings.pattern===value?styles.globalActive:""} aria-pressed={settings.pattern===value} onClick={()=>onChange("pattern",value)}><i className={styles.lineSample} style={{"--line-pattern":value}}/>{label}</button>)}</div></div>}
       {section==="weight"&&<div className={styles.settingGroup}><div className={styles.segmented}>{weights.map(([value,label])=><button key={value} className={settings.weight===value?styles.globalActive:""} aria-pressed={settings.weight===value} onClick={()=>onChange("weight",value)}><i className={styles.lineSample} style={{"--line-weight":`${{thin:1,regular:2,bold:4}[value]}px`}}/>{label}</button>)}</div></div>}
@@ -533,6 +539,9 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
   const panKeys=useRef({space:false,meta:false}),suppressPanClick=useRef(false);
   const [globalSettings,setGlobalSettings]=useState(()=>project?.board?.globalSettings||{shape:"round",color:"white",structure:"elbow",pattern:"solid",weight:"regular"});
   const [branchStyleSection,setBranchStyleSection]=useState(null);
+  const [styleTarget,setStyleTarget]=useState({key:null,mode:"selection"});
+  const pendingToolbarLayout=useRef(null);
+  const toolbarExit=useRef(null);
   const [searchOpen,setSearchOpen]=useState(false);
   const [tourOpen,setTourOpen]=useState(()=>boardTourPreference.shouldShow());
   const [outlineOpen,setOutlineOpen]=useState(false);
@@ -633,7 +642,39 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
   const styleScope=useMemo(()=>branchStyleScope(nodes,edges,selectedIds,selectedEdge),[nodes,edges,selectedIds,selectedEdge]);
   const styleSettings=useMemo(()=>branchStyleSettings(nodes,edges,styleScope,globalSettings),[nodes,edges,styleScope,globalSettings]);
   const styleDisabledReason=locked?"Unlock the canvas to style":styleScope.locked?"Unlock the branch to style":!styleScope.nodeIds.size&&!styleScope.edgeIds.size?"Select a branch to style":"";
-  const styleScopeLabel=styleDisabledReason||`${styleScope.branchCount===1?"Entire branch":`${styleScope.branchCount} entire branches`} · ${styleScope.nodeIds.size} ${styleScope.nodeIds.size===1?"shape":"shapes"}${styleScope.edgeIds.size?` · ${styleScope.edgeIds.size} ${styleScope.edgeIds.size===1?"line":"lines"}`:""}`;
+  const styleSelectionKey=JSON.stringify([selectedId,selectedIds,selectedEdge]);
+  const branchStyling=styleTarget.key===styleSelectionKey&&styleTarget.mode==="branch";
+  useEffect(()=>{setStyleTarget({key:styleSelectionKey,mode:"selection"})},[styleSelectionKey]);
+  const changeStyleScope=mode=>{
+    if(toolbarExit.current?.mode===mode)return;
+    toolbarExit.current?.transition.cancel();
+    toolbarExit.current=null;
+    pendingToolbarLayout.current=null;
+    if(mode===(branchStyling?"branch":"selection"))return;
+    const toolbar=stageRef.current?.querySelector("[data-scope-toolbar]");
+    const transition=playToolbarExit(toolbar,mode==="branch"?1:-1);
+    const request={mode,transition};
+    toolbarExit.current=request;
+    transition.finished.then(()=>{
+      if(toolbarExit.current!==request)return;
+      pendingToolbarLayout.current={layout:captureToolbarLayout(toolbar),mode};
+      setStyleTarget({key:styleSelectionKey,mode});
+      setBranchStyleSection(null);
+    });
+  };
+  const styleScopeProps={value:branchStyling?"branch":"selection",selectionCount:selectedIds.length,cardCount:styleScope.nodeIds.size,lineCount:styleScope.edgeIds.size,branchCount:styleScope.branchCount,onChange:changeStyleScope,onDismiss:()=>{setSelectedId(null);setSelectedIds([]);setSelectedEdge(null);setTouchMultiSelect(false)}};
+  useLayoutEffect(()=>{
+    toolbarExit.current?.transition.cancel();
+    toolbarExit.current=null;
+    const previous=pendingToolbarLayout.current;
+    pendingToolbarLayout.current=null;
+    if(!previous)return;
+    const toolbar=stageRef.current?.querySelector("[data-scope-toolbar]");
+    toolbar?.querySelector(`[data-style-scope="${previous.mode}"]`)?.focus({preventScroll:true});
+    const transition=playToolbarSwitch(toolbar,previous.layout);
+    return transition.cancel;
+  },[branchStyling,styleSelectionKey,editingId,presenting]);
+  useEffect(()=>()=>{toolbarExit.current?.transition.cancel();toolbarExit.current=null},[]);
   useEffect(()=>{setBranchStyleSection(null)},[selectedIds,selectedEdge,locked,styleScope.locked]);
   const focusIds=useMemo(()=>{if(focusRootId===null)return null;const ids=new Set([focusRootId]),queue=[focusRootId],root=nodes.find(node=>node.id===focusRootId);if(root?.kind==="frame")nodes.filter(node=>node.frameId===root.id).forEach(node=>{ids.add(node.id);queue.push(node.id)});while(queue.length){const id=queue.shift(),current=nodes.find(node=>node.id===id);if(current?.groupId)nodes.filter(node=>node.groupId===current.groupId).forEach(node=>{if(!ids.has(node.id)){ids.add(node.id);queue.push(node.id)}});edges.filter(edge=>edge.from===id).forEach(edge=>{if(!ids.has(edge.to)){ids.add(edge.to);queue.push(edge.to)}})}return ids},[edges,focusRootId,nodes]);
   const focusRoot=nodes.find(node=>node.id===focusRootId);
@@ -987,7 +1028,7 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
   useEffect(()=>{
     const update=()=>setPanReady(panKeys.current.space||panKeys.current.meta);
     const keyDown=event=>{
-      if(tourOpen||presenting||event.isComposing||document.activeElement?.closest('input,textarea,select,[contenteditable="true"],button,a,[role="button"]'))return;
+      if(tourOpen||presenting||event.isComposing||document.activeElement?.closest('input,textarea,select,[contenteditable="true"],[data-code-editor],[data-code-viewer],button,a,[role="button"]'))return;
       if(event.code==="Space"||event.key===" "){event.preventDefault();panKeys.current.space=true;update()}
       if(event.key==="Meta"){panKeys.current.meta=true;update()}
     };
@@ -1016,7 +1057,7 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
     if(event.button===2)return;
     const target=event.target;
     const onCanvas=target===event.currentTarget||target.closest?.(`.${styles.world}`);
-    if(!onCanvas||target.closest?.('input,textarea,select,button,a,[contenteditable="true"],[role="toolbar"]')){suppressPanClick.current=false;return;}
+    if(!onCanvas||target.closest?.('input,textarea,select,button,a,[contenteditable="true"],[data-code-editor],[data-code-viewer],[role="toolbar"]')){suppressPanClick.current=false;return;}
     if(event.pointerType==="touch"){
       const pointers=touchPointers.current;
       if(!pointers.size)suppressPanClick.current=false;
@@ -1085,6 +1126,7 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
     const stage=stageRef.current;
     if(!stage)return;
     const wheel=event=>{
+      if(event.target.closest?.('[data-keyboard-toolbar],[data-scope-toolbar],[data-cell-menu],input,textarea,select,[contenteditable="true"],[data-code-editor],[data-code-viewer]'))return;
       event.preventDefault();
       const rect=stage.getBoundingClientRect();
       const point={x:event.clientX-rect.left,y:event.clientY-rect.top};
@@ -1165,7 +1207,7 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
   useEffect(()=>{
     const keyboard=e=>{
       if(tourOpen||e.defaultPrevented||e.isComposing||shareProject||document.activeElement?.closest('dialog[open],[aria-modal="true"]'))return;
-      const active=document.activeElement,isEditing=active?.closest('input,textarea,select,[contenteditable="true"],[role="textbox"]');
+      const active=document.activeElement,isEditing=active?.closest('input,textarea,select,[contenteditable="true"],[data-code-editor],[data-code-viewer],[role="textbox"]');
       if(shortcutsOpen){if(e.key==="Escape"){e.preventDefault();setShortcutsOpen(false);stageRef.current?.focus({preventScroll:true})}return}
       const modalOpen=outlineOpen||commentsOpen||viewsOpen||historyOpen||taskBoardOpen||outlineImportOpen||findReplaceOpen||insightsOpen||libraryOpen||agendaOpen||resourcesOpen||focusLensOpen||dependencyOpen||exportStudioOpen||storyOpen||tableOpen||automationOpen||fieldsOpen||exchangeOpen||calendarOpen||progressOpen||workloadOpen||focusSessionsOpen||recurringOpen||decisionsOpen||prioritizationOpen||goalsOpen||sprintsOpen||risksOpen;
       if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"&&!presenting&&(!modalOpen||outlineOpen)){
@@ -1297,7 +1339,7 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
       const rect=event.currentTarget.getBoundingClientRect();
       const x=event.clientX||rect.left+rect.width/2,y=event.clientY||rect.top+rect.height/2;
       setCanvasMenu({left:x,top:y,x:(x-rect.left-transform.x)/transform.scale,y:(y-rect.top-transform.y)/transform.scale});
-    }} className={`${styles.stage} ${activeTool==="hand"||panReady?styles.handMode:""} ${isPanning?styles.panning:""}`} style={{backgroundPosition:`${transform.x}px ${transform.y}px`,backgroundSize:`${24*transform.scale}px ${24*transform.scale}px`}} onPointerDownCapture={capturePan} onClickCapture={suppressPanActivation} onDoubleClickCapture={suppressPanActivation} onLostPointerCapture={event=>{if(["pan","edgeLabel"].includes(gesture.current?.type)&&gesture.current.pointerId===event.pointerId){touchPointers.current.delete(event.pointerId);finishGesture()}}} onPointerDown={stageDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd} onDoubleClick={e=>{if(!presenting&&(e.target===e.currentTarget||e.target.classList.contains(styles.world))){const rect=e.currentTarget.getBoundingClientRect();addNode("box",{x:(e.clientX-rect.left-transform.x)/transform.scale-SIZE.width/2,y:(e.clientY-rect.top-transform.y)/transform.scale-SIZE.height/2})}}}>
+    }} className={`${styles.stage} ${activeTool==="hand"||panReady?styles.handMode:""} ${isPanning?styles.panning:""}`} style={{"--canvas-scale":transform.scale,backgroundPosition:`${transform.x}px ${transform.y}px`,backgroundSize:`${24*transform.scale}px ${24*transform.scale}px`}} onPointerDownCapture={capturePan} onClickCapture={suppressPanActivation} onDoubleClickCapture={suppressPanActivation} onLostPointerCapture={event=>{if(["pan","edgeLabel"].includes(gesture.current?.type)&&gesture.current.pointerId===event.pointerId){touchPointers.current.delete(event.pointerId);finishGesture()}}} onPointerDown={stageDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd} onDoubleClick={e=>{if(!presenting&&(e.target===e.currentTarget||e.target.classList.contains(styles.world))){const rect=e.currentTarget.getBoundingClientRect();addNode("box",{x:(e.clientX-rect.left-transform.x)/transform.scale-SIZE.width/2,y:(e.clientY-rect.top-transform.y)/transform.scale-SIZE.height/2})}}}>
       <p id="board-keyboard-help" className={styles.keyboardOnly}>Use arrow keys to select shapes, Shift and arrows to extend selection, Enter to edit, and Delete to remove. Tab moves to controls. Use left and right brackets to select connections. Press question mark for all shortcuts.</p>
       <p id="board-keyboard-selection" className={styles.keyboardOnly} role="status" aria-live="polite" aria-atomic="true">{selectedEdge!==null?`Connection: ${nodes.find(node=>node.id===activeEdge?.from)?.title||"Untitled"} to ${nodes.find(node=>node.id===activeEdge?.to)?.title||"Untitled"}`:selected?`${selected.kind==="frame"?"Frame":"Shape"}: ${selected.title||"Untitled"}${selectedIds.length>1?`, ${selectedIds.length} items selected`:" selected"}`:"No item selected"}</p>
       <div className={styles.world} style={{width:WORLD.width,height:WORLD.height,transform:`translate3d(${Math.round(transform.x)}px,${Math.round(transform.y)}px,0) scale(${transform.scale})`}}>
@@ -1316,12 +1358,12 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
       {editingEdge&&<EdgeLabelEditor key={`edge-label-${editingEdge.id}`} value={edgeLabelDraft} onChange={setEdgeLabelDraft} scale={transform.scale} width={Math.min(180,Math.max(40,(editingEdge.label||"Add a label…").length*5.7+16))}
         point={{x:Math.round(transform.x)+editingEdge.labelPoint.x*transform.scale,y:Math.round(transform.y)+editingEdge.labelPoint.y*transform.scale}}
         onSave={value=>updateEdgeLabel(editingEdge.id,value)} onCancel={()=>setEditingEdgeId(null)} onReturnFocus={()=>stageRef.current?.focus({preventScroll:true})}/>}
-      <BranchStylePanel settings={styleSettings} section={branchStyleSection} onSection={setBranchStyleSection} onChange={updateBranchStyle} scopeLabel={styleScopeLabel} canStyleShapes={!styleDisabledReason&&styleScope.nodeIds.size>0} canStyleLines={!styleDisabledReason&&(styleScope.nodeIds.size>0||styleScope.edgeIds.size>0)} disabledReason={styleDisabledReason}/>
-      {selected&&editingId===null&&<SelectionBar onEdit={()=>editNode(selected.id)} onAddChild={()=>addBranch(selected,"right")} onDone={()=>{setSelectedId(null);setSelectedIds([]);setSelectedEdge(null);setTouchMultiSelect(false)}} node={selected} selectionCount={selectedIds.length} grouped={selectedGrouped} locked={selectedNodes.some(node=>node.locked)} allLocked={selectedLocked} onColor={color=>{checkpoint();const chosen=new Set(selectedIds);setNodes(items=>items.map(node=>chosen.has(node.id)?{...node,color}:node))}} onDuplicate={duplicate} onDelete={removeSelected} onGroup={groupSelected} onUngroup={ungroupSelected} onLock={toggleSelectedLock} onArrange={mode=>mode==="tree"?arrangeTree():arrangeSelection(mode)} onComments={()=>openComments()} onFocus={()=>enterBranchFocus(selected.id)} onShape={shape=>{checkpoint();const chosen=new Set(selectedIds);setNodes(items=>items.map(node=>chosen.has(node.id)?{...node,shape}:node))}}/>}
-      {activeEdge&&<ConnectionToolbar key={`edge-tools-${activeEdge.id}`} className={styles.connectionDock} edge={activeEdge} defaults={globalSettings} relations={relationTypes} onChange={updateEdgeSetting} onEditLabel={()=>editEdgeLabel(activeEdge.id)} labelEditing={editingEdgeId===activeEdge.id} labelDisabled={locked||presenting} onDelete={removeSelected}/>}
+      {selected&&editingId===null&&!activeEdge&&!presenting&&branchStyling&&<BranchStylePanel scopeProps={styleScopeProps} settings={styleSettings} section={branchStyleSection} onSection={setBranchStyleSection} onChange={updateBranchStyle} scopeName={styleScope.branchCount>1?`${styleScope.branchCount} branches`:"Entire branch"} canStyleShapes={!styleDisabledReason&&styleScope.nodeIds.size>0} canStyleLines={!styleDisabledReason&&(styleScope.nodeIds.size>0||styleScope.edgeIds.size>0)} disabledReason={styleDisabledReason}/>}
+      {selected&&editingId===null&&!activeEdge&&!presenting&&!branchStyling&&<SelectionBar key={styleSelectionKey} scopeProps={styleScopeProps} onEdit={()=>editNode(selected.id)} onAddChild={()=>addBranch(selected,"right")} onDone={()=>{setSelectedId(null);setSelectedIds([]);setSelectedEdge(null);setTouchMultiSelect(false)}} node={selected} selectionCount={selectedIds.length} grouped={selectedGrouped} locked={locked||selectedNodes.some(node=>node.locked)} allLocked={selectedLocked} onColor={color=>{checkpoint();const chosen=new Set(selectedIds);setNodes(items=>items.map(node=>chosen.has(node.id)?{...node,color}:node))}} onDuplicate={duplicate} onDelete={removeSelected} onGroup={groupSelected} onUngroup={ungroupSelected} onLock={toggleSelectedLock} onArrange={mode=>mode==="tree"?arrangeTree():arrangeSelection(mode)} onComments={()=>openComments()} onFocus={()=>enterBranchFocus(selected.id)} onShape={shape=>{checkpoint();const chosen=new Set(selectedIds);setNodes(items=>items.map(node=>chosen.has(node.id)?{...node,shape}:node))}}/>}
+      {activeEdge&&<ConnectionToolbar key={`edge-tools-${activeEdge.id}`} className={styles.connectionDock} edge={activeEdge} defaults={globalSettings} onChange={updateEdgeSetting} onEditLabel={()=>editEdgeLabel(activeEdge.id)} labelEditing={editingEdgeId===activeEdge.id} labelDisabled={locked||presenting} onDelete={removeSelected} onDismiss={()=>{setSelectedEdge(null);setEditingEdgeId(null)}}/>}
       {touchMultiSelect&&<div className={styles.touchSelectionHint}><span>Tap shapes to select</span><button onClick={()=>setTouchMultiSelect(false)}>Done</button></div>}
       <MiniMap nodes={visibleNodes} transform={transform} view={view} onFit={fit} onNavigate={navigateMiniMap}/>
-      <div data-keyboard-toolbar data-tour="navigation" className={styles.zoom}><button onClick={()=>setTransform(t=>({...t,scale:snapScale(t.scale-.1)}))} aria-label="Zoom out" title="Zoom out">−</button><button onClick={fit} aria-label="Fit map" title="Fit entire board to view">{Math.round(transform.scale*100)}%</button><button onClick={()=>setTransform(t=>({...t,scale:snapScale(t.scale+.1)}))} aria-label="Zoom in" title="Zoom in">+</button><span/><button className={locked?styles.locked:""} aria-pressed={locked} onClick={()=>setLocked(v=>!v)} aria-label={locked?"Unlock canvas":"Lock canvas"} title={locked?"Unlock canvas editing":"Lock canvas editing"}><CanvasControlIcon name={locked?"locked":"unlocked"}/></button><button onClick={fit} aria-label="Center and fit board" title="Center and fit board in view"><CanvasControlIcon name="fit"/></button><span/><button data-tour="replay" className={styles.tourButton} onClick={openTour} aria-label="Take board tour" title="Take a quick tour of the board">Tour</button></div>
+      <div data-keyboard-toolbar data-tour="navigation" className={styles.zoom}><button onClick={()=>setTransform(t=>zoomAtPoint(t,{x:view.width/2,y:view.height/2},snapScale(t.scale-.1)))} aria-label="Zoom out" title="Zoom out">−</button><button onClick={fit} aria-label="Fit map" title="Fit entire board to view">{Math.round(transform.scale*100)}%</button><button onClick={()=>setTransform(t=>zoomAtPoint(t,{x:view.width/2,y:view.height/2},snapScale(t.scale+.1)))} aria-label="Zoom in" title="Zoom in">+</button><span/><button className={locked?styles.locked:""} aria-pressed={locked} onClick={()=>setLocked(v=>!v)} aria-label={locked?"Unlock canvas":"Lock canvas"} title={locked?"Unlock canvas editing":"Lock canvas editing"}><CanvasControlIcon name={locked?"locked":"unlocked"}/></button><button onClick={fit} aria-label="Center and fit board" title="Center and fit board in view"><CanvasControlIcon name="fit"/></button><span/><button data-tour="replay" className={styles.tourButton} onClick={openTour} aria-label="Take board tour" title="Take a quick tour of the board">Tour</button></div>
       {selectionBox&&<div className={styles.selectionMarquee} style={selectionBox}/>}
       {snapGuides.y==="line"&&<div className={styles.magnetHint}>↯ Snapped to straight</div>}
       {(typeof snapGuides.x==="number"||typeof snapGuides.y==="number")&&<div className={styles.magnetHint}>↯ Magnetic alignment</div>}

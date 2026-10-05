@@ -229,3 +229,4 @@
   .identity { flex:0 1 auto;min-width:0;max-width:440px; }
   .historyControls { position:static;transform:none; }
 }
+@media(pointer:coarse){.historyButton{width:44px;height:44px;}.renameButton{width:44px;height:44px;}.titleInput{font-size:16px;}}

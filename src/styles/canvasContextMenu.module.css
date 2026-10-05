@@ -10,3 +10,6 @@
 .menu button.danger:hover,.menu button.danger:focus-visible { background:var(--nova-danger-soft); }
 .menu button:disabled { opacity:.4;cursor:default;background:transparent;color:var(--nova-muted); }
 @media(pointer:coarse) { .menu button { min-height:44px; } }
+.title{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-block:2px;}
+.menu .close{flex:none;justify-content:center;width:36px;min-height:36px;padding:0;}
+@media(max-width:760px),(pointer:coarse){.menu button{min-height:44px;}.menu .close{width:44px;min-height:44px;}}

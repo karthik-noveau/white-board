@@ -1019,12 +1019,15 @@
 }
 
 /* Mixed-content cells grow with their document while connections use measured bounds. */
-.node.contentNode{padding:0;display:block;min-width:320px;min-height:100px;text-align:left;border-radius:12px!important;overflow:visible;background:var(--nova-surface)!important;border-color:var(--nova-border-strong);box-shadow:0 2px 5px #17112405,0 8px 22px #17112408}
-.contentNode.selectedNode{border-color:var(--nova-primary)!important}
+.node.contentNode{padding:0;display:block;overflow:visible}
+.node.contentNode:not(.contentCard){min-width:320px;min-height:100px;text-align:left;border-radius:12px!important;background:var(--nova-surface)!important;border-color:var(--nova-border-strong);box-shadow:0 2px 5px #17112405,0 8px 22px #17112408}
+.node.contentCard{display:flex}
+.contentCard>[data-cell-content]{flex-shrink:0}
+.contentNode:not(.contentCard).selectedNode{border-color:var(--nova-primary)!important}
 .contentNode .nodeGlyph,.contentNode .nodeAccent{display:none}
-.contentNode .nodeComments{bottom:auto;top:-12px;right:14px}
-.contentNode .nodeProgress{bottom:0}
-.contentNode .nodeDue,.contentNode .nodeStatus{bottom:-12px}
+.contentNode:not(.contentCard) .nodeComments{bottom:auto;top:-12px;right:14px}
+.contentNode:not(.contentCard) .nodeProgress{bottom:0}
+.contentNode:not(.contentCard) .nodeDue,.contentNode:not(.contentCard) .nodeStatus{bottom:-12px}
 .contentNode .transformControls{pointer-events:none}
 .contentNode .transformControls .resizeHandle,.contentNode .transformControls .rotateHandle{pointer-events:auto}
 .presenting .contentNode [data-cell-content]{pointer-events:auto}
@@ -1040,3 +1043,97 @@
 .edges .editableEdgeLabel { pointer-events:all;cursor:grab;touch-action:none;user-select:none; }
 .edges .draggingEdgeLabel { cursor:grabbing; }
 .edges .editableEdgeLabel:focus-visible rect { stroke:var(--nova-primary); }
+
+/* Card and branch styles share one contextual position above the canvas. */
+.selectionDock .selectionBar{flex-wrap:wrap;overflow:visible;justify-content:flex-start}
+.selectionBarActions,.branchBarActions{display:flex;flex-wrap:wrap;align-items:center;gap:4px;min-width:0;max-width:100%;overflow:visible}
+.scopeActionViewport{flex:0 1 auto;min-width:0;max-width:100%}
+.scopeActionViewport[data-scope-motion]{overflow:hidden}
+.selectionBarActions>button{display:flex;align-items:center;justify-content:center;gap:6px;flex:none;white-space:nowrap}
+.selectionBarActions>span{flex:none;width:1px;height:24px;margin-inline:4px;background:var(--nova-border)}
+.selectionBarActions>.selectionAction{display:grid;place-items:center;flex:none;width:40px;height:36px;padding:0;line-height:0}
+.selectionBarActions>.selectionAction>svg{width:18px;height:18px}
+.selectionBarActions>.mobileSelectionAction{display:none}
+.selectionBarActions>button[aria-label="Delete"]{color:var(--nova-muted)}
+.selectionBarActions>button[aria-label="Delete"]:hover:not(:disabled){color:#b34a53;background:var(--nova-danger-soft,#fff1f2)}
+.contextStyleDock .globalStyleRail{display:flex;align-items:center;flex-direction:row;flex-wrap:wrap;width:max-content;max-width:100%;padding:6px;gap:4px;overflow:visible}
+.app .contextStyleDock .globalPanel{left:50%;right:auto;top:calc(100% + 10px);bottom:auto;width:296px;max-width:100%;transform:translateX(-50%);transform-origin:center top}
+
+/* Let each scope fit its controls; never reserve blank space or clip an action. */
+.selectionDock,.contextStyleDock{z-index:60;top:14px;left:50%;right:auto;bottom:auto;width:max-content;max-width:calc(100% - 32px);transform:translateX(-50%)}
+.selectionDock .selectionBar,.contextStyleDock .globalStyleRail{position:relative;isolation:isolate;width:100%;max-width:100%;height:auto;min-height:50px;margin:0;padding:6px;gap:4px;border:1px solid transparent;border-radius:12px;background:transparent;box-shadow:none}
+.selectionDock[data-scope-toolbar]{animation:none}
+.scopeToolbarBackground{position:absolute;z-index:-1;inset:-1px;pointer-events:none;border:1px solid var(--nova-border);border-radius:inherit;background:var(--nova-surface);box-shadow:0 3px 8px #17112405,0 8px 24px #1711240d}
+.selectionBarActions,.branchBarActions{flex:0 1 auto;gap:4px}
+.selectionBar .scopeStyleButton,.contextStyleDock .scopeStyleButton{display:flex;flex:none;align-items:center;justify-content:center;flex-direction:row;gap:7px;width:auto;min-width:80px;height:36px;min-height:36px;margin:0;padding:0 8px;border:0;border-radius:7px;background:transparent;color:var(--nova-text);font:550 var(--nova-text-sm)/20px var(--nova-font-family);white-space:nowrap;box-shadow:none}
+.selectionBar .scopeStyleButton>span,.contextStyleDock .scopeStyleButton>span{flex:none;max-width:none;overflow:visible;text-overflow:clip;white-space:nowrap;font:inherit;color:inherit}
+.selectionBar .scopeStyleButton>svg,.contextStyleDock .scopeStyleButton>svg{flex:none;width:18px;height:18px}
+.selectionBar .scopeStyleButton:hover:not(:disabled),.contextStyleDock .scopeStyleButton:hover:not(:disabled){background:var(--nova-surface-tint);color:var(--nova-primary)}
+.selectionBar .scopeStyleButton[aria-expanded="true"],.contextStyleDock .scopeStyleButton[aria-expanded="true"]{background:var(--nova-primary-soft);color:var(--nova-primary)}
+.selectionBarActions>.toolbarActionSeparator{margin-inline:4px}
+.scopeAppearanceMenu{position:absolute;z-index:55;left:50%;top:calc(100% + 10px);width:296px;max-width:100%;padding:8px;transform:translateX(-50%);border:1px solid var(--nova-border);border-radius:14px;background:var(--nova-surface);box-shadow:var(--nova-popover-shadow)}
+.app .contextStyleDock .globalPanel{padding:8px;border:1px solid var(--nova-border);border-radius:14px;background:var(--nova-surface);box-shadow:var(--nova-popover-shadow)}
+.appearanceShapes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.appearanceShapes>button{display:flex;align-items:center;gap:12px;width:100%;min-width:0;min-height:44px;padding:8px 12px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--nova-text);font:500 var(--nova-text-sm)/20px var(--nova-font-family);text-align:left;cursor:pointer}
+.appearanceShapes>button:hover{background:var(--nova-surface-tint);color:var(--nova-primary)}
+.appearanceShapes>button[aria-pressed="true"]{border-color:var(--nova-primary-border);background:var(--nova-primary-soft);color:var(--nova-primary)}
+.appearanceShapes .shapePreview{flex:none;margin-inline:2px}
+.appearanceColors{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.appearanceColors>button{display:grid;place-items:center;width:100%;min-width:0;height:38px;min-height:38px;padding:4px;border:1px solid transparent;border-radius:8px;background:transparent;cursor:pointer}
+.appearanceColors>button>i{display:block;width:26px;height:26px;border:2px solid var(--nova-surface);border-radius:50%;box-shadow:0 0 0 1px var(--nova-border)}
+.appearanceColors>button:hover,.appearanceColors>button[aria-pressed="true"]{border-color:var(--nova-primary-border);background:var(--nova-primary-soft)}
+.appearanceShapes>button:focus-visible,.appearanceColors>button:focus-visible{outline:2px solid var(--nova-primary);outline-offset:-2px}
+.appearanceShapes>button:disabled,.appearanceColors>button:disabled{opacity:.4;cursor:default}
+@media(max-width:760px),(max-height:500px) and (pointer:coarse){
+  .selectionDock,.contextStyleDock{top:8px;left:8px;right:auto;bottom:auto;width:calc(100% - 16px);max-width:none;transform:none}
+  .selectionDock .selectionBar,.contextStyleDock .globalStyleRail{width:100%;height:auto;min-height:0;padding:5px;flex-direction:column;align-items:stretch;gap:5px}
+  .selectionBarActions,.branchBarActions{width:100%;gap:4px;justify-content:flex-start}
+  .scopeActionViewport{width:100%}
+  .selectionBarActions>button,.contextStyleDock .branchBarActions>button{height:44px;min-height:44px;padding-inline:10px}
+  .selectionBar .scopeStyleButton,.contextStyleDock .scopeStyleButton{height:44px;min-height:44px;min-width:88px;padding-inline:10px}
+  .selectionBarActions>.toolbarActionSeparator{margin-left:4px}
+  .appearanceColors{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .appearanceColors>button{height:44px;min-height:44px}
+  .selectionBarActions>.selectionAction{width:44px;min-width:44px;padding:0}
+  .selectionBarActions>.mobileSelectionAction{display:flex}
+  .selectionBarActions>.selectionDone{position:static;border-left:1px solid var(--nova-border);border-radius:0;background:transparent;color:var(--nova-primary);box-shadow:none}
+  .zoom{bottom:calc(8px + env(safe-area-inset-bottom))}
+  .stage:has(.contextStyleDock) .zoom{display:none}
+}
+
+/* Keep the canvas usable on phones: scope above a single scrollable tools row. */
+@media(max-width:760px),(max-height:500px) and (pointer:coarse){
+  .app{--board-header:calc(60px + env(safe-area-inset-top));}
+  .header{height:var(--board-header);}
+  .stage{top:var(--board-header);}
+  .selectionDock,.contextStyleDock{left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));width:auto;max-width:none;transform:none;}
+  .selectionDock .selectionBar,.contextStyleDock .globalStyleRail{overflow:visible;touch-action:auto;}
+  .scopeActionViewport{width:100%;min-width:0;}
+  .selectionBarActions,.branchBarActions{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:thin;scroll-padding-inline:8px;}
+  .selectionBarActions>.mobileEditAction{order:-1;background:var(--nova-primary-soft);color:var(--nova-primary);}
+  .selectionBarActions>.selectionDone{display:none;}
+  .selectionBarActions>.toolbarActionSeparator{margin-inline:2px;}
+  .app .scopeAppearanceMenu,.app .contextStyleDock .globalPanel,.selectionDock>.arrangeMenu{left:0;right:0;top:calc(100% + 8px);bottom:auto;width:auto;max-width:100%;max-height:calc(var(--app-height,100dvh) - var(--board-header) - 148px);overflow-y:auto;transform:none;overscroll-behavior:contain;touch-action:pan-y;}
+  .zoom{bottom:calc(8px + env(safe-area-inset-bottom));}
+  .touchSelectionHint{top:auto;bottom:calc(68px + env(safe-area-inset-bottom));z-index:65;}
+  .app .focusBar{top:auto;bottom:calc(72px + env(safe-area-inset-bottom));max-width:calc(100% - 16px);height:48px;}
+  .focusBarIcon{width:32px;height:32px;}
+  .focusBarInfo{grid-template-columns:32px minmax(0,1fr);height:36px;}
+  .stage:has(.touchSelectionHint) .focusBar{bottom:calc(124px + env(safe-area-inset-bottom));}
+  .presenting .stage{inset:0;}
+}
+@media(max-height:500px) and (pointer:coarse){
+  .header{display:grid;grid-template-columns:44px minmax(0,1fr) 88px 44px 44px;grid-template-rows:44px;padding-inline:max(8px,env(safe-area-inset-left));gap:4px;}
+  .header .brand>b,.headerActions,.headerDivider,.headerSpacer,.header .exportButton,.header .share>span{display:none;}
+  .header .share{width:44px;padding:0;}
+  .toolbar{top:calc(var(--board-header) + 8px);}
+  .app .focusBar{bottom:calc(8px + env(safe-area-inset-bottom));max-width:calc(100% - 220px);}
+}
+@media(pointer:coarse){
+  .selectionBarActions>button,.branchBarActions>button{min-height:44px;}
+}
+@media(pointer:coarse){.selectionBarActions>.mobileEditAction{display:flex;order:-1;background:var(--nova-primary-soft);color:var(--nova-primary);}}
+@media(pointer:coarse){
+  .edgeHit{stroke-width:28;vector-effect:non-scaling-stroke;}
+  .resizeHandle::after,.rotateHandle::after{inset:calc(-18px / var(--canvas-scale,1));}
+}

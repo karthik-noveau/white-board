@@ -14,7 +14,7 @@ export default function RichTextEditor({ node, onChange, onFinish, onUpgrade }) 
   const mobileDialogRef = useRef(null);
   // Keep the same editor DOM during rotation so the caret and draft survive.
   const compact = useMediaQuery();
-  const [mobile] = useState(compact);
+  const [mobile] = useState(() => compact || window.matchMedia('(pointer: coarse)').matches);
   const titleRef = useRef(null);
   const noteRef = useRef(null);
   const savedSelection = useRef(null);

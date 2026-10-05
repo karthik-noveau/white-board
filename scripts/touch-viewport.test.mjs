@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { beginPinch, updatePinch, beginTouchPan } from "../src/lib/touchViewport.js";
+import { beginPinch, updatePinch, beginTouchPan, zoomAtPoint } from "../src/lib/touchViewport.js";
 
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} ≠ ${expected}`);
 
@@ -50,4 +50,14 @@ test("adding or removing a third finger can rebase the same viewport", () => {
   const before = { x: -873.45, y: -641.89, scale: .346 };
   const next = updatePinch(beginPinch(points, before, { left: 12, top: 64 }), points);
   close(next.x, before.x); close(next.y, before.y); close(next.scale, before.scale);
+});
+
+test('zoom buttons preserve the content at the screen center and clamp limits', () => {
+  const before = { x: -400, y: -200, scale: .5 }, center = { x: 195, y: 350 };
+  for (const requested of [-1, .6, 10]) {
+    const after = zoomAtPoint(before, center, requested);
+    close((center.x - after.x) / after.scale, (center.x - before.x) / before.scale);
+    close((center.y - after.y) / after.scale, (center.y - before.y) / before.scale);
+    assert.ok(after.scale >= .01 && after.scale <= 4);
+  }
 });

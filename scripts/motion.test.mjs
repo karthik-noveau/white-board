@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { playTransition } from "../src/lib/motion.js";
+import { playToolbarExit, playTransition } from "../src/lib/motion.js";
 
 function surface() {
   const animations = [];
@@ -18,7 +18,10 @@ function surface() {
 
 function motionPreference(t, reduced = false) {
   const previous = globalThis.window;
-  globalThis.window = { matchMedia: () => ({ matches: reduced }) };
+  globalThis.window = {
+    matchMedia: () => ({ matches: reduced }),
+    getComputedStyle: () => ({ opacity: "1", translate: "none" }),
+  };
   t.after(() => { if (previous === undefined) delete globalThis.window; else globalThis.window = previous; });
 }
 
@@ -68,4 +71,48 @@ test("motion preserves positioning transforms and pages never translate fixed co
     transition.cancel();
     await transition.finished;
   }
+});
+
+function toolbar() {
+  const actions = { ...surface(), inert: false, parentElement: { dataset: {} } };
+  return { actions, querySelector: () => actions };
+}
+
+test("toolbar switch waits for the exit and prevents stale actions until replacement", async t => {
+  motionPreference(t);
+  const element = toolbar();
+  const transition = playToolbarExit(element, 1);
+  let completed = false;
+  transition.finished.then(() => { completed = true; });
+  await Promise.resolve();
+  assert.equal(completed, false);
+  assert.equal(element.actions.inert, true);
+  element.actions.animations[0].finish();
+  await transition.finished;
+  assert.equal(completed, true);
+  assert.equal(element.actions.inert, true);
+  transition.cancel();
+  assert.equal(element.actions.inert, false);
+  assert.equal(element.actions.parentElement.dataset.scopeMotion, undefined);
+});
+
+test("cancelling a toolbar switch restores the outgoing controls", async t => {
+  motionPreference(t);
+  const element = toolbar();
+  const transition = playToolbarExit(element, -1);
+  transition.cancel();
+  await transition.finished;
+  assert.equal(element.actions.inert, false);
+  assert.equal(element.actions.parentElement.dataset.scopeMotion, undefined);
+});
+
+test("toolbar switching is immediate and interactive with reduced motion", async t => {
+  motionPreference(t, true);
+  const element = toolbar();
+  const transition = playToolbarExit(element, 1);
+  await transition.finished;
+  assert.equal(element.actions.animations.length, 0);
+  assert.equal(element.actions.inert, false);
+  transition.cancel();
+  await playToolbarExit(null, 1).finished;
 });

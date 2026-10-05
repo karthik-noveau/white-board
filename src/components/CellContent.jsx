@@ -1,13 +1,17 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import Icon from './BoardIcon';
 import CellSlashMenu from './CellSlashMenu';
 import CanvasContextMenu from './CanvasContextMenu';
+import MobileEditorDialog from './MobileEditorDialog';
+import { isCardContent, isCardText } from '../lib/boardAppearance';
+import { CODE_LANGUAGES } from '../lib/codeLanguages';
+import { mobileQuery } from '../lib/useMediaQuery';
 import { TYPES, IMAGE_TYPES, attachmentFromTransfer, placeAttachment, cloneContent, commandQuery, contentText, csvText, ensureEditor, insertCommand, insertRelativeBlock, editTable, locateBlock, readAttachment, safeAttachment, safeURL, textBlock } from '../lib/cellContent';
 import styles from '../styles/cellContent.module.css';
 
 const stop = event => event.stopPropagation();
-const CODE_LANGUAGES = ['Plain text', 'JavaScript', 'TypeScript', 'JSX', 'TSX', 'HTML', 'CSS', 'SCSS', 'JSON', 'YAML', 'Markdown', 'Python', 'SQL', 'GraphQL', 'Shell', 'Bash', 'Go', 'Rust', 'Java', 'Kotlin', 'C', 'C++', 'C#', 'Swift', 'Ruby', 'PHP', 'Dart', 'Dockerfile', 'XML'];
+const CodeEditor = lazy(() => import('./CodeEditor'));
 const clean = html => DOMPurify.sanitize(html, { ALLOWED_TAGS: ['b','strong','i','em','u','s','br','p','div','span','ul','ol','li','code','pre','blockquote','sub','sup'], ALLOWED_ATTR: [] });
 function TextField({ value = '', onChange, className = '', ...props }) {
   const ref = useRef(null);
@@ -17,7 +21,9 @@ function TextField({ value = '', onChange, className = '', ...props }) {
   }, [value]);
   useEffect(() => {
     const element = ref.current;
-    let width = element.offsetWidth;
+    // The first observation also measures fields mounted in a closed dialog.
+    // Their first layout pass has no height until showModal() displays them.
+    let width;
     const observer = new ResizeObserver(() => {
       if (width === element.offsetWidth) return;
       width = element.offsetWidth; element.style.height = '0px'; element.style.height = `${element.scrollHeight}px`;
@@ -38,8 +44,25 @@ function TaskCheckbox({ checked, label, readonly, onChange }) {
   </span>;
 }
 
-export default function CellContent({ node, editing = false, onChange, onFinish, onStartEditing, onHeight, onUndo, onRedo }) {
+export default function CellContent(props) {
+  return props.editing ? <CellEditingSession {...props}/> : <CellDocument {...props}/>;
+}
+
+function CellEditingSession(props) {
+  // Preserve the editing session and caret when rotating a phone or tablet.
+  const [mobile] = useState(() => window.matchMedia(mobileQuery).matches || window.matchMedia('(pointer: coarse)').matches);
+  if (!mobile) return <CellDocument {...props}/>;
+  return <>
+    <CellDocument {...props} editing={false}/>
+    <MobileEditorDialog className={styles.mobileEditor} label="Edit card" onClose={props.onFinish}>
+      <CellDocument {...props} onHeight={undefined} mobileEditor/>
+    </MobileEditorDialog>
+  </>;
+}
+
+function CellDocument({ node, editing = false, mobileEditor = false, onChange, onFinish, onStartEditing, onHeight, onUndo, onRedo }) {
   const root = useRef(null), current = useRef(node), upload = useRef(null), uploadTarget = useRef(null);
+  const focusedBlock = useRef(null);
   const pendingAttachments = useRef(new Map()), writable = useRef(false);
   current.current = node;
   const [menu, setMenu] = useState(null), [actions, setActions] = useState(null), [message, setMessage] = useState('');
@@ -47,6 +70,7 @@ export default function CellContent({ node, editing = false, onChange, onFinish,
   const canEdit = Boolean(onChange && !node.locked && (editing || onStartEditing));
   writable.current = canEdit;
   const readonly = !editing || !canEdit;
+  const cardContent = !mobileEditor && isCardContent(node), cardText = cardContent && isCardText(node);
   useLayoutEffect(() => {
     if (!onHeight) return;
     const element = root.current;
@@ -57,10 +81,11 @@ export default function CellContent({ node, editing = false, onChange, onFinish,
   useLayoutEffect(() => {
     if (!editing || actions || menu) return;
     const block = focus && root.current?.querySelector(`[data-block-id="${CSS.escape(focus.id)}"]`);
-    const element = focus?.image ? block?.querySelector('[data-image-drop]') : focus ? block?.querySelector('textarea') || block?.querySelector('input:not([type]),input[type="text"]') : root.current?.querySelector('textarea');
+    const element = focus?.image ? block?.querySelector('[data-image-drop]') : focus ? block?.querySelector('[data-code-editor] .cm-content,textarea') || block?.querySelector('input:not([type]),input[type="text"]') : root.current?.querySelector('textarea');
     element?.focus({ preventScroll: true });
     if (focus?.offset != null) element?.setSelectionRange?.(focus.offset, focus.offset);
-  }, [editing, focus, actions, menu]);
+    if (mobileEditor && focus) element?.scrollIntoView({ block: 'nearest' });
+  }, [editing, focus, actions, menu, mobileEditor]);
   useEffect(() => {
     if (!editing) return;
     const outside = event => { if (!root.current?.contains(event.target) && !event.target.closest('[data-cell-menu]')) { setMenu(null); setActions(null); onFinish?.(); } };
@@ -144,12 +169,12 @@ export default function CellContent({ node, editing = false, onChange, onFinish,
     setMenu({ id, depth, position, anchor });
     if (!editing) onStartEditing?.();
   };
-  const openContext = event => {
+  const openContext = (event, element = event.target) => {
     if (!onChange || (!editing && !onStartEditing) || node.locked) return;
     event.preventDefault(); event.stopPropagation();
-    const target = event.target.closest('[data-block-id]');
-    const slot = event.target.closest('[data-table-cell]');
-    const rect = event.target.getBoundingClientRect();
+    const target = element.closest('[data-block-id]');
+    const slot = element.closest('[data-table-cell]');
+    const rect = element.getBoundingClientRect();
     const pointer = event.type === 'contextmenu' && (event.clientX || event.clientY);
     setMenu(null);
     setActions({
@@ -158,7 +183,7 @@ export default function CellContent({ node, editing = false, onChange, onFinish,
       tableId: slot?.dataset.tableId,
       row: slot?.hasAttribute('data-row') ? Number(slot.dataset.row) : null,
       column: slot ? Number(slot.dataset.column) : null,
-      anchor: { left: pointer ? event.clientX : rect.left, top: pointer ? event.clientY : rect.bottom + 4 },
+      anchor: { container: element.closest('dialog[open]'), left: pointer ? event.clientX : rect.left, top: pointer ? event.clientY : rect.bottom + 4 },
     });
     if (!editing) onStartEditing?.();
   };
@@ -234,7 +259,7 @@ export default function CellContent({ node, editing = false, onChange, onFinish,
   };
   const render = (content, depth = 0) => content.map((b, index) => <section key={b.id} data-block-id={b.id} data-cell-box={b.type === 'note' ? '' : undefined} className={`${styles.block} ${styles[b.type]} ${b.type === 'text' && !b.text && !b.html && (depth > 0 || content.length > 1) ? styles.empty : ''} ${b.type === 'note' ? styles[b.tone || 'warm'] : ''}`}>
     {!readonly && <div className={styles.insertPoint}><button type="button" aria-label={`Insert content before ${TYPES[b.type].name.toLowerCase()} ${index + 1}`} title="Insert content here" onClick={event => insertAt(b.id, depth, 'before', { element: event.currentTarget })}><Icon name="plus" size={12}/><span/></button></div>}
-    {['text','heading','note'].includes(b.type) && (readonly ? <div data-cell-text className={styles.prose}>{b.html ? <span dangerouslySetInnerHTML={{ __html: clean(b.html) }}/> : b.text || (depth === 0 && content.length === 1 ? <span className={styles.placeholder}>Double-click to edit · type / for blocks</span> : '\u00a0')}</div> : <TextField aria-label={`${TYPES[b.type].name} block`} value={b.text} placeholder={b.type === 'text' ? (depth ? '/ to insert' : 'Type / to add content…') : b.type === 'heading' ? 'Heading' : 'Capture a thought…'} onChange={event => { patch(b.id, { text: event.target.value, html: undefined }, b.id); openMenu(event, b.id, depth); }} onClick={event => openMenu(event, b.id, depth)} onKeyUp={event => { if (['ArrowLeft','ArrowRight'].includes(event.key)) openMenu(event, b.id, depth); }} onKeyDown={event => textKey(event, b)}/>)}
+    {['text','heading','note'].includes(b.type) && (readonly ? <div data-cell-text className={styles.prose}>{b.html ? <span dangerouslySetInnerHTML={{ __html: clean(b.html) }}/> : b.text || (depth === 0 && content.length === 1 ? <span className={styles.placeholder}>{cardText ? 'Double-click to edit' : 'Double-click to edit · type / for blocks'}</span> : '\u00a0')}</div> : <TextField aria-label={`${TYPES[b.type].name} block`} value={b.text} placeholder={b.type === 'text' ? (depth ? '/ to insert' : cardText && node.w < 180 ? 'Type /…' : 'Type / to add content…') : b.type === 'heading' ? 'Heading' : 'Capture a thought…'} onChange={event => { patch(b.id, { text: event.target.value, html: undefined }, b.id); openMenu(event, b.id, depth); }} onClick={event => openMenu(event, b.id, depth)} onKeyUp={event => { if (['ArrowLeft','ArrowRight'].includes(event.key)) openMenu(event, b.id, depth); }} onKeyDown={event => textKey(event, b)}/>)}
     {b.type === 'divider' && <hr data-cell-box/>}
     {b.type === 'checklist' && <div className={styles.tasks}>{b.tasks.map((task, t) => <div key={t} className={`${styles.task} ${task.done ? styles.done : ''}`}>
       <TaskCheckbox readonly={readonly} label={`Complete ${task.text || `task ${t + 1}`}`} checked={task.done} onChange={() => patch(b.id, { tasks: b.tasks.map((item, i) => i === t ? { ...item, done: !item.done } : item) })}/>
@@ -261,7 +286,9 @@ export default function CellContent({ node, editing = false, onChange, onFinish,
           {b.language && !CODE_LANGUAGES.includes(b.language) && <option value={b.language}>{b.language}</option>}
           {CODE_LANGUAGES.map(language => <option key={language} value={language}>{language}</option>)}
         </select><Icon name="chevron" size={12}/>
-      </div>}<button type="button" onClick={async () => { try { await navigator.clipboard.writeText(b.code || ''); setMessage('Code copied'); } catch { setMessage('Could not copy. Select the code to copy it.'); } }}><Icon name="duplicate" size={14}/>Copy</button></div>{readonly ? <pre data-cell-text>{b.code || ' '}</pre> : <TextField aria-label="Code snippet" spellCheck={false} value={b.code || ''} placeholder="Paste your code…" onChange={event => patch(b.id, { code: event.target.value }, b.id)} onKeyDown={event => { if (event.key === 'Tab' && !event.shiftKey) { event.preventDefault(); const el = event.target, start = el.selectionStart, end = el.selectionEnd; patch(b.id, { code: `${(b.code || '').slice(0,start)}  ${(b.code || '').slice(end)}` }, b.id); requestAnimationFrame(() => el.setSelectionRange(start + 2,start + 2)); } }}/> }</div>}
+      </div>}<button type="button" onClick={async () => { try { await navigator.clipboard.writeText(b.code || ''); setMessage('Code copied'); } catch { setMessage('Could not copy. Select the code to copy it.'); } }}><Icon name="duplicate" size={14}/>Copy</button></div><Suspense fallback={<pre data-cell-text>{b.code || 'Loading editor…'}</pre>}>
+        <CodeEditor value={b.code || ''} language={b.language || 'Plain text'} readOnly={readonly} autoFocus={focus?.id === b.id} onChange={code => patch(b.id, { code }, b.id)}/>
+      </Suspense></div>}
     {b.type === 'image' && <figure>
       <div data-image-drop={b.id} role="group" tabIndex={canEdit ? 0 : undefined}
         aria-label={canEdit ? `Image: ${b.caption || b.filename || 'empty'}. Paste or drop an image, or press Enter to choose a file.` : undefined}
@@ -285,14 +312,14 @@ export default function CellContent({ node, editing = false, onChange, onFinish,
     {b.type === 'link' && <div data-cell-box className={styles.linkBox}><span className={styles.attachmentIcon}><Icon name="share" size={18}/></span><div className={styles.linkBody}>{readonly ? safeURL(b.url) ? <a data-cell-text href={safeURL(b.url)} target="_blank" rel="noopener noreferrer" onPointerDown={stop} onClick={stop}>{b.url} ↗</a> : <span data-cell-text>{b.url || 'Add a link'}</span> : <TextField aria-label="Link URL" value={b.url || ''} placeholder="https://…" onChange={event => patch(b.id, { url: event.target.value }, `${b.id}-url`)}/>} {readonly ? b.description && <div data-cell-text>{b.description}</div> : <TextField aria-label="Link description" value={b.description || ''} placeholder="What is useful here?" onChange={event => patch(b.id, { description: event.target.value }, `${b.id}-description`)}/>}</div></div>}
     {b.type === 'file' && <div data-cell-box className={styles.fileBox}><span className={styles.attachmentIcon}><Icon name="attachment" size={20}/></span><div className={styles.fileBody}><b data-cell-text>{b.filename || 'Attach a file'}</b><small data-cell-text>{b.size ? `${(b.size / 1024).toFixed(0)} KB` : 'Up to 5 MB'}</small><div className={styles.fileActions}>{safeAttachment(b.data) && <a href={b.data} download={b.filename || 'attachment'} onClick={stop} onPointerDown={stop}><Icon name="download" size={14}/>Download</a>}{!readonly && <button type="button" className={styles.subtle} onClick={() => { uploadTarget.current = { id: b.id, type: b.type }; upload.current.accept = ''; upload.current.click(); }}><Icon name="upload" size={14}/>{b.data ? 'Replace file' : 'Choose file'}</button>}</div></div></div>}
   </section>);
-  return <div ref={root} className={`${styles.cell} ${editing ? styles.editing : ''}`} data-cell-content onContextMenu={event => openContext(event)} onPointerDown={editing ? stop : undefined} onClick={editing ? stop : undefined} onDoubleClick={editing ? stop : undefined} onPaste={paste} onDragOver={dragOver} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget)) setDropTarget(null); }} onDrop={paste} onKeyDown={event => {
+  return <div ref={root} className={`${styles.cell} ${cardContent ? styles.cardContent : ''} ${cardText ? styles.cardText : ''} ${editing ? styles.editing : ''}`} data-cell-content onFocusCapture={event => { if (event.target.closest('[data-block-id]')) focusedBlock.current = event.target; }} onContextMenu={event => openContext(event)} onPointerDown={editing ? stop : undefined} onClick={editing ? stop : undefined} onDoubleClick={editing ? stop : undefined} onPaste={paste} onDragOver={dragOver} onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget)) setDropTarget(null); }} onDrop={paste} onKeyDown={event => {
     if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) { openContext(event); return; }
     if (!editing && !(canEdit && event.target.closest('[data-image-drop]'))) return;
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); if (actions) setActions(null); else onFinish?.(); }
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) onRedo?.(); else onUndo?.(); }
   }}>
-    {editing && <div className={styles.editBar}><span>Type <kbd>/</kbd> for blocks</span><button type="button" onClick={onFinish}>Done <kbd>esc</kbd></button></div>}
+    {editing && <div className={styles.editBar}><span>{mobileEditor ? <><b>Edit card</b><small>Type / to add content</small></> : <>Type <kbd>/</kbd> for blocks</>}</span>{mobileEditor && <button type="button" onClick={event => openContext(event, focusedBlock.current?.isConnected ? focusedBlock.current : root.current)}>Block actions</button>}<button type="button" onClick={onFinish}>Done {!mobileEditor && <kbd>esc</kbd>}</button></div>}
     <header className={styles.cellTitle}>{readonly ? <div data-cell-text>{node.titleHtml ? <span dangerouslySetInnerHTML={{ __html: clean(node.titleHtml) }}/> : node.title}</div> : <TextField aria-label="Card title" value={node.title} onChange={event => onChange(node.id, { title: event.target.value, titleHtml: undefined }, 'title')}/>}</header>
     <div className={styles.content}>{render(node.content)}</div>
     {canEdit && <input ref={upload} type="file" hidden onChange={event => { const target = uploadTarget.current; if (target) void attach(event.target.files[0], target.id, target.type); event.target.value = ''; }}/>}

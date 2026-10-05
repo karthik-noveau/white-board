@@ -116,3 +116,9 @@
 :global(html[data-keyboard="true"]) .header { padding:8px 12px; }
 :global(html[data-keyboard="true"]) .header p,:global(html[data-keyboard="true"]) .filters { display:none; }
 :global(html[data-keyboard="true"]) .composer textarea { height:64px; }
+@media(max-width:760px),(max-height:500px) and (pointer:coarse){
+  .commentsPanel{top:calc(var(--app-top,0px) + var(--board-header,60px) + 8px);bottom:auto;height:calc(var(--app-height,100dvh) - var(--board-header,60px) - 16px - env(safe-area-inset-bottom));max-height:calc(var(--app-height,100dvh) - var(--board-header,60px) - 16px);}
+  .statusFilters button,.commentScopeTrigger{min-height:44px;}
+  :global(html[data-keyboard="true"]) .commentsPanel{top:calc(var(--app-top,0px) + 8px);height:calc(var(--app-height,100dvh) - 16px);max-height:calc(var(--app-height,100dvh) - 16px);}
+}
+@media(pointer:coarse){.closeButton,.commentTarget,.resolveButton,.deleteButton,.commentScopeTrigger,.statusFilters button,.composerActions button{min-height:44px;}.closeButton,.deleteButton{width:44px;}.composer textarea{font-size:16px;}}

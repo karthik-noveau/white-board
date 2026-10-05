@@ -46,3 +46,4 @@
   .dialog .backup,.dialog .download{min-height:46px;font-size:var(--nova-text-sm)}
 }
 @media(max-height:500px){.preview{height:90px}.body{gap:10px}.formats button{min-height:48px}}
+@media(max-width:760px),(pointer:coarse){.dialog{position:fixed;inset:calc(var(--app-top,0px) + 12px) 0 auto;margin:0 auto;}}

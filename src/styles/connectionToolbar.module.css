@@ -24,6 +24,17 @@
   box-shadow: var(--nova-popover-shadow);
 }
 .rail::-webkit-scrollbar { display: none; }
+.scope {
+  flex: none;
+  margin-inline: 6px 2px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: var(--nova-primary-soft);
+  color: var(--nova-primary);
+  font-size: var(--nova-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
 .dock button { font: inherit; cursor: pointer; }
 .rail button {
   display: flex;
@@ -61,7 +72,8 @@
   background: var(--nova-surface);
   box-shadow: var(--nova-popover-shadow);
 }
-.heading { padding: 6px 8px 10px; color: var(--nova-ink); font-weight: 600; }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 10px; color: var(--nova-ink); font-weight: 600; }
+.heading small { color: var(--nova-muted); font-size: var(--nova-text-xs); font-weight: 400; }
 .options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .options button {
   display: flex;
@@ -81,16 +93,21 @@
 .options button[aria-pressed="true"] { border-color: var(--nova-primary-border); background: var(--nova-primary-soft); color: var(--nova-primary); }
 .lineSample { display: flex; align-items: center; width: 28px; height: 20px; }
 .lineSample::after { content: ""; width: 100%; border-top: var(--sample-weight) var(--sample-pattern) currentColor; }
-.relations { display: grid; gap: 2px; }
-.relations button { display: flex; align-items: center; justify-content: space-between; min-height: 40px; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; text-align: left; }
-.relations button:hover { background: var(--nova-surface-tint); }
-.relations button[aria-pressed="true"] { background: var(--nova-primary-soft); color: var(--nova-primary); }
-.relations button[aria-pressed="false"] svg { visibility: hidden; }
 
 @media (max-width: 760px) {
   .dock { top: 8px; max-width: calc(100% - 16px); }
   .rail { gap: 2px; padding: 5px; border-radius: 12px; }
   .rail button { gap: 6px; min-height: 44px; padding-inline: 10px; }
   .rail .deleteButton { width: 44px; }
-  .relations button { min-height: 44px; }
+  .scope { margin-inline: 2px; padding-inline: 6px; }
+}
+.mobileHeader{display:none;}
+@media(max-width:760px),(max-height:500px) and (pointer:coarse){
+  .dock{top:8px;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));width:auto;max-width:none;transform:none;padding:5px;border:1px solid var(--nova-border);border-radius:12px;background:var(--nova-surface);box-shadow:var(--nova-popover-shadow);}
+  .mobileHeader{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding-left:10px;margin-bottom:5px;border-bottom:1px solid var(--nova-border);color:var(--nova-primary);font-weight:550;}
+  .mobileHeader button{display:grid;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--nova-muted);}
+  .rail{padding:0;border:0;border-radius:0;box-shadow:none;touch-action:pan-x;overscroll-behavior-x:contain;scrollbar-width:thin;}
+  .rail button{min-height:44px;}
+  .scope,.scope+.separator{display:none;}
+  .popover{max-height:calc(var(--app-height,100dvh) - 210px);overflow:auto;touch-action:pan-y;}
 }

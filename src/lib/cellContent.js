@@ -1,3 +1,5 @@
+import { nodeSize } from './boardAppearance.js';
+
 export const TYPES = {
   text: { name: 'Text', icon: 'type', description: 'Just start writing.', aliases: 'paragraph plain' },
   heading: { name: 'Heading', icon: 'heading-2', description: 'Give an idea a clear heading.', aliases: 'title h2' },
@@ -231,5 +233,7 @@ export function upgradeCell(node, draft, type) {
   if (draft.note?.trim() && draft.note !== 'Double-click to edit') content.push({ ...textBlock(draft.note), ...(draft.noteHtml ? { html: draft.noteHtml } : {}) });
   content.push(newContent(type));
   ensureEditor(content);
-  return { ...draft, note: '', noteHtml: undefined, content, shape: 'round', w: Math.max(node.w || 0, type === 'table' ? 520 : 380), h: 0 };
+  const { width, height } = nodeSize(node);
+  // Adding blocks changes the content, not the card's existing appearance.
+  return { ...draft, note: '', noteHtml: undefined, content, contentLayout: 'card', w: type === 'table' ? Math.max(width, 520) : width, h: height };
 }

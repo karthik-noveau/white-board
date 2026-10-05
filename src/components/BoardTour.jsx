@@ -20,7 +20,7 @@ const steps = [
   },
   {
     target: "styles", icon: "palette", title: "Style a branch",
-    description: "Select any shape or line to style its entire connected branch.",
+    description: "Select a card to style it. Choose Entire branch in the toolbar to change all connected cards and lines.",
   },
   {
     target: "navigation", icon: "hand", title: "Pan & zoom",

@@ -153,6 +153,37 @@ test('legacy shape upgrade preserves text and rich formatting', () => {
   assert.equal(patch.w, 520);
   assert.equal(node.x, 30); assert.equal(node.comments.length, 1);
 });
+test('slash text preserves card geometry and appearance until content needs more height', () => {
+  for (const shape of ['round', 'rectangle', 'pill', 'circle', 'ellipse']) {
+    const node = { id: 1, x: 30, y: 70, title: 'New branch', note: 'Double-click to edit', color: 'violet', shape, rotate: -6 };
+    const converted = { ...node, ...upgradeCell(node, { title: node.title, note: node.note }, 'text') };
+    assert.deepEqual(nodeSize(converted), nodeSize(node), shape);
+    for (const key of ['x', 'y', 'color', 'shape', 'rotate']) assert.equal(converted[key], node[key]);
+    assert.equal(converted.contentLayout, 'card');
+    assert.equal(converted.content[0].text, '');
+    assert.deepEqual(nodeSize({ ...converted, contentHeight: 260 }), { width: nodeSize(node).width, height: 260 });
+  }
+  const resized = { w: 290, h: 180, root: true, shape: 'soft' };
+  assert.deepEqual(nodeSize({ ...resized, ...upgradeCell(resized, { title: 'Plan' }, 'text') }), { width: 290, height: 180 });
+});
+test('upgraded card appearance survives sharing and SVG export', async () => {
+  const node = { id: 1, x: 20, y: 40, title: 'Plan', color: 'violet', shape: 'pill', rotate: -6 };
+  const converted = { ...node, ...upgradeCell(node, { title: node.title, note: 'A small step' }, 'text') };
+  const project = { title: 'Appearance', board: { nodes: [converted], edges: [] } };
+  for (const access of ['readonly', 'editable']) {
+    const url = await createShareUrl(project, 'https://nova.example', { access });
+    const shared = (await readShareLink(new URL(url).hash)).project.board.nodes[0];
+    assert.equal(shared.contentLayout, 'card');
+    assert.deepEqual(nodeSize(shared), nodeSize(node));
+  }
+  const svg = createBoardSvg([converted], []).svg;
+  assert.match(svg, /fill="#f0eaff"/);
+  assert.match(svg, /rx="46"/);
+  assert.match(svg, /text-anchor="middle"/);
+  const rootSvg = createBoardSvg([{ ...converted, root: true }], []).svg;
+  assert.match(rootSvg, /fill="#6436dc"/);
+  assert.match(rootSvg, /fill="#ffffff"/);
+});
 test('unsafe attachments and URLs cannot become active content', () => {
   assert.equal(safeURL('javascript:alert(1)'), '');
   assert.equal(safeURL('https://user:password@example.com'), '');

@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import MobileEditorDialog from './MobileEditorDialog';
+import { mobileQuery } from '../lib/useMediaQuery';
 import styles from "../styles/edgeLabelEditor.module.css";
 
 export default function EdgeLabelEditor({ value, point, scale, width, onChange, onSave, onCancel, onReturnFocus }) {
   const input = useRef(null), finished = useRef(false);
+  const [mobile] = useState(() => window.matchMedia(mobileQuery).matches || window.matchMedia('(pointer: coarse)').matches);
   const finish = useCallback((save, restoreFocus = false) => {
     if (finished.current) return;
     finished.current = true;
@@ -16,10 +19,19 @@ export default function EdgeLabelEditor({ value, point, scale, width, onChange, 
     input.current.select();
   }, []);
   useEffect(() => {
+    if (mobile) return;
     const outside = event => { if (event.target !== input.current) finish(true); };
     document.addEventListener("pointerdown", outside, true);
     return () => document.removeEventListener("pointerdown", outside, true);
-  }, [finish]);
+  }, [finish, mobile]);
+
+  if (mobile) return <MobileEditorDialog className={styles.mobileEditor} label="Edit connection label" onClose={() => finish(false, true)}>
+    <form onSubmit={event => { event.preventDefault(); finish(true, true); }}>
+      <label htmlFor="mobile-connection-label">Connection label</label>
+      <input ref={input} id="mobile-connection-label" value={value} placeholder="Add a label…" onChange={event => onChange(event.target.value)}/>
+      <div><button type="button" onClick={() => finish(false, true)}>Cancel</button><button type="submit">Save label</button></div>
+    </form>
+  </MobileEditorDialog>;
 
   return <input ref={input} className={styles.editor} aria-label="Connection label"
     title="Enter to save · Escape to cancel" placeholder="Add a label…" value={value}

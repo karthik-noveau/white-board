@@ -42,3 +42,4 @@
   .linkRow input{height:46px;font-size:var(--nova-text-md)}
   .linkRow button,.dialog footer button{min-height:46px;font-size:var(--nova-text-sm)}
 }
+@media(max-width:760px),(pointer:coarse){.dialog{position:fixed;inset:calc(var(--app-top,0px) + 12px) 0 auto;margin:0 auto;}.dialog footer{position:sticky;bottom:0;background:var(--nova-surface);padding-bottom:max(16px,env(safe-area-inset-bottom));}}

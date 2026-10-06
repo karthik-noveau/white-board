@@ -5,8 +5,11 @@ import { closestLabelPosition, connectionLabelPoint, connectionLabelPlacement } 
 import Header from "./BoardHeader";
 import styles from "../styles/canvas.module.css";
 import RichTextEditor from "./RichTextEditor";
+import useBlockDragPan from "../lib/useBlockDragPan";
 import CellContent from "./CellContent";
-import { textBlock, upgradeCell, contentText, replaceContentText } from "../lib/cellContent";
+import { BlockWorkspaceContext, useBlockWorkspace } from "../lib/blockWorkspace";
+import { BLOCK_MIME, readBlockPayload, readBlockClipboard, blocksFromClipboard, clearBlockClipboard, transferBlocks } from "../lib/blockEditing";
+import { textBlock, upgradeCell, contentText, replaceContentText, walkContent } from "../lib/cellContent";
 import Icon from "./BoardIcon";
 import MotionPresence from "./MotionPresence";
 import { captureToolbarLayout, playToolbarExit, playToolbarSwitch } from "../lib/motion";
@@ -30,6 +33,7 @@ import { branchStyleScope, branchStyleSettings, applyBranchStyle, childBranchSty
 import { beginPinch, updatePinch, beginTouchPan, zoomAtPoint } from "../lib/touchViewport";
 import { zoomByWheel } from "../lib/wheelViewport";
 import { createNodeDrag, moveDraggedNodes, moveDraggedEdges } from "../lib/nodeDrag";
+import { contextNodeIds, canvasContextPoint } from "../lib/canvasContext";
 import { filterBoardOutline } from "../lib/boardOutline";
 import { copyBoardState, createSavedView, restoreSavedView, nextBoardItemId } from "../lib/boardViews";
 import { deleteProjectVersion, deleteShapeLibraryItem, exportProjectFile, listProjectVersions, listShapeLibrary, saveShapeLibraryItem } from "../lib/localWorkspace";
@@ -405,6 +409,24 @@ function Toolbar({ active, onActive, onAdd }) {
 }
 
 export function Node({ node, selected, transformable, connecting, editing, childCount, blockedBy, progress, assignee, onSelect, onDrag, onEdit, onRichChange, onCellChange, onCellHeight, onUpgrade, onUndo, onRedo, onBranch, onResize, onRotate, onToggleCollapse, onComments, readOnly = false }) {
+  const blockWorkspace=useBlockWorkspace();
+  const [blockDrop,setBlockDrop]=useState(false);
+  const textRef=useRef(null);
+  useLayoutEffect(()=>{
+    const text=textRef.current;
+    if(node.content||!text||!onCellHeight)return;
+    const card=text.parentElement;
+    const measure=()=>{
+      // Layout sizes stay in board units even when the canvas is zoomed or rotated.
+      const style=getComputedStyle(card);
+      const inset=['paddingTop','paddingBottom','borderTopWidth','borderBottomWidth'].reduce((sum,key)=>sum+(parseFloat(style[key])||0),0);
+      onCellHeight(node.id,Math.ceil(Math.max(text.offsetHeight,text.scrollHeight)+inset));
+    };
+    measure();
+    const observer=new ResizeObserver(measure);
+    observer.observe(text);observer.observe(card);
+    return()=>observer.disconnect();
+  },[node.id,node.content,onCellHeight]);
   const [bg,border,accent]=palettes[node.color]||palettes.white;
   const root=rootColors(node);
   const size=nodeSize(node);
@@ -413,7 +435,11 @@ export function Node({ node, selected, transformable, connecting, editing, child
   // between pointerdown and pointerup prevents clicks/double-clicks from firing.
   const titleMarkup=useMemo(()=>({__html:node.titleHtml}),[node.titleHtml]);
   const noteMarkup=useMemo(()=>({__html:node.noteHtml}),[node.noteHtml]);
-  return <article aria-label={`${node.kind==="frame"?"Frame":"Shape"}: ${node.title||"Untitled"}${selected?", selected":""}${node.locked?", locked":""}`} data-export-node={node.id} className={`${styles.node} ${node.kind==="frame"?styles.frameNode:""} ${node.content?styles.contentNode:""} ${isCardContent(node)?styles.contentCard:""} ${node.locked?styles.lockedNode:""} ${node.root?styles.rootNode:""} ${selected?styles.selectedNode:""} ${connecting?styles.connectingNode:""} ${editing?styles.editingNode:""} ${styles[node.shape]}`} style={{width:size.width,height:size.height,transform:`translate(${node.x}px,${node.y}px) rotate(${node.rotate||0}deg)`,background:node.content&&!isCardContent(node)?"var(--nova-surface)":node.root?root.fill:bg,borderColor:selected?accent:border,"--accent":accent,"--root-text":root.text,"--root-note":root.note,"--root-editor":root.editor,"--card-text":node.root?root.text:"#202027","--card-note":node.root?root.note:"var(--nova-muted)"}} onPointerDown={readOnly?undefined:e=>onDrag?.(e,node)} onClick={e=>{e.stopPropagation();onSelect?.(node.id,e.shiftKey||e.metaKey||e.ctrlKey)}} onDoubleClick={e=>{e.stopPropagation();if(!readOnly)onEdit?.(node.id)}}>
+  return <article aria-label={`${node.kind==="frame"?"Frame":"Shape"}: ${node.title||"Untitled"}${selected?", selected":""}${node.locked?", locked":""}`} data-export-node={node.id} data-block-drop={blockDrop||undefined}
+    onDragOver={event=>{if(!node.content&&!readOnly&&!node.locked&&blockWorkspace.onTransfer&&event.dataTransfer.types.includes(BLOCK_MIME)){event.preventDefault();event.stopPropagation();setBlockDrop(true);event.dataTransfer.dropEffect=event.altKey?"copy":"move"}}}
+    onDragLeave={event=>{if(!event.currentTarget.contains(event.relatedTarget))setBlockDrop(false)}}
+    onDrop={event=>{setBlockDrop(false);if(node.content||!event.dataTransfer.types.includes(BLOCK_MIME))return;event.preventDefault();event.stopPropagation();if(readOnly||node.locked)return;const payload=readBlockPayload(event.dataTransfer.getData(BLOCK_MIME));if(payload)blockWorkspace.onTransfer?.(payload,{cardId:node.id},payload.boardId===blockWorkspace.boardId&&!event.altKey)}}
+    className={`${styles.node} ${node.kind==="frame"?styles.frameNode:""} ${node.content?styles.contentNode:""} ${isCardContent(node)?styles.contentCard:""} ${node.locked?styles.lockedNode:""} ${node.root?styles.rootNode:""} ${selected?styles.selectedNode:""} ${connecting?styles.connectingNode:""} ${editing?styles.editingNode:""} ${styles[node.shape]}`} style={{width:size.width,height:size.height,transform:`translate(${node.x}px,${node.y}px) rotate(${node.rotate||0}deg)`,background:node.content&&!isCardContent(node)?"var(--nova-surface)":node.root?root.fill:bg,borderColor:selected?accent:border,"--accent":accent,"--root-text":root.text,"--root-note":root.note,"--root-editor":root.editor,"--card-text":node.root?root.text:"#202027","--card-note":node.root?root.note:"var(--nova-muted)"}} onPointerDown={readOnly?undefined:e=>onDrag?.(e,node)} onClick={e=>{e.stopPropagation();onSelect?.(node.id,e.shiftKey||e.metaKey||e.ctrlKey)}} onDoubleClick={e=>{e.stopPropagation();if(!readOnly)onEdit?.(node.id)}}>
     {node.locked&&<div className={styles.nodeLock}><Icon name="lock" size={11}/></div>}
     <div className={styles.nodeBadges}>
     {!!node.links?.length&&<div className={styles.nodeLinks}><Icon name="link" size={11}/><b>{node.links.length}</b></div>}
@@ -438,14 +464,14 @@ export function Node({ node, selected, transformable, connecting, editing, child
     {!!childCount&&<button tabIndex={selected&&!editing?0:-1} className={`${styles.nodeCollapse} ${node.collapsed?styles.nodeCollapsed:""}`} onPointerDown={event=>event.stopPropagation()} onClick={event=>{event.stopPropagation();onToggleCollapse(node.id)}} title={node.collapsed?"Expand branch":"Collapse branch"}>{node.collapsed?`+${childCount}`:"−"}</button>}
     <div className={styles.nodeAccent}/>
     <div className={styles.nodeGlyph}>{node.root?"✦":node.title?.charAt(0)}</div>
-    {node.content?<CellContent node={node} editing={editing&&!readOnly} onChange={onCellChange} onHeight={onCellHeight} onUndo={onUndo} onRedo={onRedo} onFinish={()=>onEdit?.(null)} onStartEditing={!readOnly&&!node.locked?()=>onEdit?.(node.id):undefined}/>:editing?<RichTextEditor node={node} onChange={onRichChange} onUpgrade={node.kind==="frame"?undefined:onUpgrade} onFinish={()=>onEdit(null)}/>:<>{node.titleHtml?<h3 dangerouslySetInnerHTML={titleMarkup}/>:<h3>{node.title}</h3>}{node.noteHtml?<p dangerouslySetInnerHTML={noteMarkup}/>:<p>{node.note}</p>}</>}
-    {!readOnly&&<><button tabIndex={selected&&!editing?0:-1} className={`${styles.branch} ${styles.branchTop}`} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onBranch(node,"top")}} aria-label="Add branch above"><span/><b>+</b></button>
+    {node.content?<CellContent node={node} editing={editing&&!readOnly} onChange={onCellChange} onHeight={onCellHeight} onUndo={onUndo} onRedo={onRedo} onFinish={()=>onEdit?.(null)} onStartEditing={!readOnly&&!node.locked?()=>onEdit?.(node.id):undefined}/>:<div ref={textRef} className={styles.nodeText}>{editing?<RichTextEditor node={node} onChange={onRichChange} onUpgrade={node.kind==="frame"?undefined:onUpgrade} onFinish={()=>onEdit(null)}/>:<>{node.titleHtml?<h3 dangerouslySetInnerHTML={titleMarkup}/>:<h3>{node.title}</h3>}{node.noteHtml?<p dangerouslySetInnerHTML={noteMarkup}/>:<p>{node.note}</p>}</>}</div>}
+    {!readOnly&&!editing&&<><button tabIndex={selected&&!editing?0:-1} className={`${styles.branch} ${styles.branchTop}`} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onBranch(node,"top")}} aria-label="Add branch above"><span/><b>+</b></button>
     <button tabIndex={selected&&!editing?0:-1} className={`${styles.branch} ${styles.branchRight}`} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onBranch(node,"right")}} aria-label="Add branch right"><span/><b>+</b></button>
     <button tabIndex={selected&&!editing?0:-1} className={`${styles.branch} ${styles.branchBottom}`} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onBranch(node,"bottom")}} aria-label="Add branch below"><span/><b>+</b></button>
     <button tabIndex={selected&&!editing?0:-1} className={`${styles.branch} ${styles.branchLeft}`} onPointerDown={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();onBranch(node,"left")}} aria-label="Add branch left"><span/><b>+</b></button></>}
-    {!readOnly&&transformable&&<div className={styles.transformControls}>
-      {["nw","n","ne","e","se","s","sw","w"].map(handle=><span key={handle} className={`${styles.resizeHandle} ${styles[`resize${handle.toUpperCase()}`]}`} onPointerDown={e=>onResize(e,node,handle)}/>)}
-      <button tabIndex={-1} className={styles.rotateHandle} onPointerDown={e=>onRotate(e,node)} aria-label="Rotate shape" title="Drag to rotate shape"><span>↻</span></button>
+    {!readOnly&&selected&&<div className={styles.transformControls}>
+      {transformable&&<>{["nw","n","ne","e","se","s","sw","w"].map(handle=><span key={handle} className={`${styles.resizeHandle} ${styles[`resize${handle.toUpperCase()}`]}`} onPointerDown={e=>onResize(e,node,handle)}/>)}
+      <button tabIndex={-1} className={styles.rotateHandle} onPointerDown={e=>onRotate(e,node)} aria-label="Rotate shape" title="Drag to rotate shape"><span>↻</span></button></>}
     </div>}
   </article>;
 }
@@ -538,6 +564,17 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
   const [panReady,setPanReady]=useState(false),[isPanning,setIsPanning]=useState(false);
   const panKeys=useRef({space:false,meta:false}),suppressPanClick=useRef(false);
   const [globalSettings,setGlobalSettings]=useState(()=>project?.board?.globalSettings||{shape:"round",color:"white",structure:"elbow",pattern:"solid",weight:"regular"});
+  const [blockSelectionState,setBlockSelectionState]=useState(null);
+  useEffect(()=>{
+    setBlockSelectionState(selection=>{
+      if(!selection)return null;
+      const card=nodes.find(node=>node.id===selection.cardId);
+      if(!card?.content)return null;
+      const available=new Set();walkContent(card.content,({block})=>available.add(block.id));
+      const ids=selection.ids.filter(id=>available.has(id));
+      return ids.length===selection.ids.length?selection:ids.length?{...selection,ids}:null;
+    });
+  },[nodes]);
   const [branchStyleSection,setBranchStyleSection]=useState(null);
   const [styleTarget,setStyleTarget]=useState({key:null,mode:"selection"});
   const pendingToolbarLayout=useRef(null);
@@ -599,6 +636,7 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
   const [transform,setTransform]=useState(()=>project?.board?.viewport||{x:-480,y:-410,scale:.9}); const [view,setView]=useState({width:1200,height:800});
   const [,setHistoryVersion]=useState(0);
   const stageRef=useRef(null); const gesture=useRef(null);
+  useBlockDragPan(stageRef,setTransform,!locked&&!presenting);
   const touchPointers=useRef(new Map()),transformRef=useRef(transform),initialFitted=useRef(false);
   transformRef.current=transform; const nextNode=useRef(Math.max(0,...(project?.board?.nodes||initialNodes).map(node=>Number.isSafeInteger(Number(node.id))?Number(node.id):0))+1); const nextEdge=useRef(Math.max(0,...(project?.board?.edges||initialEdges).map(edge=>Number.isSafeInteger(Number(edge.id))?Number(edge.id):0))+1);
   const pasteCount=useRef(0);
@@ -747,6 +785,15 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
     cellTyping.current={key:editKey,time:now};
     setNodes(items=>items.map(node=>node.id===id?{...node,...patch}:node));
   },[checkpoint]);
+  const transferContentBlocks=useCallback((payload,destination,move=false)=>{
+    if(locked||presenting)return false;
+    try{
+      const result=transferBlocks(stateRef.current.nodes,payload,destination,move);
+      checkpoint();setNodes(result.nodes);setBlockSelectionState({cardId:destination.cardId,ids:result.ids});
+      notify(`${result.ids.length} ${result.ids.length===1?"block":"blocks"} ${move?"moved":"pasted"}`);
+      return true;
+    }catch(error){notify(error.message);return false}
+  },[locked,presenting,checkpoint,notify]);
   const measureCell=useCallback((id,height)=>setNodes(items=>items.map(node=>node.id===id&&node.contentHeight!==height?{...node,contentHeight:height}:node)),[]);
   const convertCell=useCallback((id,draft,type)=>{
     const node=stateRef.current.nodes.find(item=>item.id===id);if(!node)return;
@@ -772,8 +819,33 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
     setSelectedEdge(null);setSelectedId(null);setSelectedIds([]);
   },[checkpoint,nodes,notify,selectedEdge,selectedIds]);
   const duplicate=()=>{if(!selectedIds.length)return;checkpoint();const chosen=new Set(selectedIds),idMap=new Map(),groupMap=new Map();selectedIds.forEach(id=>idMap.set(id,nextNode.current++));const copies=nodes.filter(node=>chosen.has(node.id)).map(node=>{let groupId=node.groupId;if(groupId){if(!groupMap.has(groupId))groupMap.set(groupId,`group-${Date.now()}-${groupMap.size}`);groupId=groupMap.get(groupId)}return{...node,id:idMap.get(node.id),groupId,x:node.x+35,y:node.y+35,root:false}});const copiedEdges=edges.filter(edge=>chosen.has(edge.from)&&chosen.has(edge.to)).map(edge=>({...edge,id:nextEdge.current++,from:idMap.get(edge.from),to:idMap.get(edge.to)}));const ids=copies.map(node=>node.id);setNodes(items=>[...items,...copies]);setEdges(items=>[...items,...copiedEdges]);setSelectedIds(ids);setSelectedId(ids.at(-1)||null)};
-  const copySelection=useCallback(()=>{if(!selectedIds.length)return false;const initiallyChosen=new Set(selectedIds),selectedFrames=new Set(nodes.filter(node=>initiallyChosen.has(node.id)&&node.kind==="frame").map(node=>node.id)),chosen=new Set([...selectedIds,...nodes.filter(node=>selectedFrames.has(node.frameId)).map(node=>node.id)]),copiedNodes=nodes.filter(node=>chosen.has(node.id));if(!copiedNodes.length)return false;const left=Math.min(...copiedNodes.map(node=>node.x)),top=Math.min(...copiedNodes.map(node=>node.y)),right=Math.max(...copiedNodes.map(node=>node.x+nodeSize(node).width)),bottom=Math.max(...copiedNodes.map(node=>node.y+nodeSize(node).height)),payload={version:1,width:right-left,height:bottom-top,nodes:copiedNodes.map(node=>({...node,x:node.x-left,y:node.y-top})),edges:edges.filter(edge=>chosen.has(edge.from)&&chosen.has(edge.to)).map(edge=>({...edge}))};try{localStorage.setItem(CLIPBOARD_KEY,JSON.stringify(payload));pasteCount.current=0;notify(`${copiedNodes.length} ${copiedNodes.length===1?"shape":"shapes"} copied`);return true}catch{notify("Could not copy selection");return false}},[edges,nodes,notify,selectedIds]);
-  const pasteSelection=useCallback(()=>{let payload;try{payload=JSON.parse(localStorage.getItem(CLIPBOARD_KEY)||"")}catch{payload=null}if(!payload?.nodes?.length){notify("Nothing to paste");return}checkpoint();pasteCount.current+=1;const idMap=new Map(),groupMap=new Map();payload.nodes.forEach(node=>idMap.set(node.id,nextNode.current++));const rect=stageRef.current?.getBoundingClientRect(),offset=Math.min(96,pasteCount.current*18),originX=((rect?.width||view.width)/2-transform.x)/transform.scale-(payload.width||0)/2+offset,originY=((rect?.height||view.height)/2-transform.y)/transform.scale-(payload.height||0)/2+offset;const copies=payload.nodes.map(node=>{let groupId=node.groupId;if(groupId){if(!groupMap.has(groupId))groupMap.set(groupId,`group-${Date.now()}-${groupMap.size}`);groupId=groupMap.get(groupId)}return{...node,id:idMap.get(node.id),x:Math.round(originX+node.x),y:Math.round(originY+node.y),groupId,frameId:idMap.get(node.frameId),root:false}}),copiedEdges=(payload.edges||[]).filter(edge=>idMap.has(edge.from)&&idMap.has(edge.to)).map(edge=>({...edge,id:nextEdge.current++,from:idMap.get(edge.from),to:idMap.get(edge.to)})),ids=copies.map(node=>node.id);setNodes(items=>[...items,...copies]);setEdges(items=>[...items,...copiedEdges]);setSelectedIds(ids);setSelectedId(ids.at(-1)||null);setSelectedEdge(null);notify(`${copies.length} ${copies.length===1?"shape":"shapes"} pasted`)},[checkpoint,notify,transform,view]);
+  const copySelection=useCallback((event)=>{if(!selectedIds.length)return false;const initiallyChosen=new Set(selectedIds),selectedFrames=new Set(nodes.filter(node=>initiallyChosen.has(node.id)&&node.kind==="frame").map(node=>node.id)),chosen=new Set([...selectedIds,...nodes.filter(node=>selectedFrames.has(node.frameId)).map(node=>node.id)]),copiedNodes=nodes.filter(node=>chosen.has(node.id));if(!copiedNodes.length)return false;const left=Math.min(...copiedNodes.map(node=>node.x)),top=Math.min(...copiedNodes.map(node=>node.y)),right=Math.max(...copiedNodes.map(node=>node.x+nodeSize(node).width)),bottom=Math.max(...copiedNodes.map(node=>node.y+nodeSize(node).height)),payload={version:1,width:right-left,height:bottom-top,nodes:copiedNodes.map(node=>({...node,x:node.x-left,y:node.y-top})),edges:edges.filter(edge=>chosen.has(edge.from)&&chosen.has(edge.to)).map(edge=>({...edge}))};try{localStorage.setItem(CLIPBOARD_KEY,JSON.stringify(payload));clearBlockClipboard();const plain=copiedNodes.map(node=>node.title||"Untitled card").join("\n");if(event?.clipboardData){event.clipboardData.setData('text/plain',plain);event.clipboardData.setData('application/x-nova-cards',JSON.stringify(payload))}else navigator.clipboard?.writeText(plain).catch(()=>{});pasteCount.current=0;notify(`${copiedNodes.length} ${copiedNodes.length===1?"shape":"shapes"} copied`);return true}catch{notify("Could not copy selection");return false}},[edges,nodes,notify,selectedIds]);
+  const pasteSelection=useCallback((at=null)=>{let payload;try{payload=JSON.parse(localStorage.getItem(CLIPBOARD_KEY)||"")}catch{payload=null}if(!payload?.nodes?.length){notify("Nothing to paste");return}checkpoint();pasteCount.current+=1;const idMap=new Map(),groupMap=new Map();payload.nodes.forEach(node=>idMap.set(node.id,nextNode.current++));const rect=stageRef.current?.getBoundingClientRect(),offset=Math.min(96,pasteCount.current*18),originX=at?.x??(((rect?.width||view.width)/2-transform.x)/transform.scale-(payload.width||0)/2+offset),originY=at?.y??(((rect?.height||view.height)/2-transform.y)/transform.scale-(payload.height||0)/2+offset);const copies=payload.nodes.map(node=>{let groupId=node.groupId;if(groupId){if(!groupMap.has(groupId))groupMap.set(groupId,`group-${Date.now()}-${groupMap.size}`);groupId=groupMap.get(groupId)}return{...node,id:idMap.get(node.id),x:Math.round(originX+node.x),y:Math.round(originY+node.y),groupId,frameId:idMap.get(node.frameId),root:false}}),copiedEdges=(payload.edges||[]).filter(edge=>idMap.has(edge.from)&&idMap.has(edge.to)).map(edge=>({...edge,id:nextEdge.current++,from:idMap.get(edge.from),to:idMap.get(edge.to)})),ids=copies.map(node=>node.id);setNodes(items=>[...items,...copies]);setEdges(items=>[...items,...copiedEdges]);setSelectedIds(ids);setSelectedId(ids.at(-1)||null);setSelectedEdge(null);notify(`${copies.length} ${copies.length===1?"shape":"shapes"} pasted`)},[checkpoint,notify,transform,view]);
+  useEffect(()=>{
+    const paste = event => {
+      const active=document.activeElement;
+      if(event.defaultPrevented||locked||presenting||!(active===stageRef.current||active===document.body))return;
+      event.preventDefault();
+      const payload=blocksFromClipboard(event.clipboardData);
+      if(!payload&&event.clipboardData?.types.includes(BLOCK_MIME)){notify("These copied blocks are no longer available");return;}
+      if(payload){
+        if(selectedIds.length!==1){notify("Select one card to paste blocks into");return}
+        transferContentBlocks(payload,{cardId:selectedIds[0]});
+      }else pasteSelection();
+    };
+    window.addEventListener('paste',paste);
+    return()=>window.removeEventListener('paste',paste);
+  },[locked,presenting,selectedIds,pasteSelection,transferContentBlocks,notify]);
+  useEffect(()=>{
+    const copy = event => {
+      if(event.defaultPrevented||presenting||!selectedIds.length||![stageRef.current,document.body].includes(document.activeElement))return;
+      event.preventDefault();
+      if(event.type==='cut'&&(locked||nodes.some(node=>selectedIds.includes(node.id)&&node.locked))){notify("Unlock the selection to cut it");return;}
+      if(copySelection(event)&&event.type==='cut')removeSelected();
+    };
+    window.addEventListener('copy',copy);window.addEventListener('cut',copy);
+    return()=>{window.removeEventListener('copy',copy);window.removeEventListener('cut',copy);};
+  },[presenting,locked,nodes,selectedIds,copySelection,removeSelected,notify]);
   const updateEdgeSetting=(key,value)=>{if(!selectedEdge)return;checkpoint();setEdges(items=>items.map(edge=>edge.id===selectedEdge?{...edge,[key]:value}:edge))};
   const updateEdgeLabel=useCallback((id,value)=>{
     const current=stateRef.current.edges.find(edge=>edge.id===id),clean=value.trim();
@@ -1000,7 +1072,7 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
   const applyNodeDrag=(g,dx,dy)=>{g.dx=dx;g.dy=dy;setNodes(items=>moveDraggedNodes(items,g,dx,dy));if(g.edgeOrigins.size)setEdges(items=>moveDraggedEdges(items,g,dx,dy))};
   const moveGroup=e=>{const g=gesture.current;if(!g||g.type!=="nodeMulti")return;if(!g.historySaved){checkpoint();g.historySaved=true}applyNodeDrag(g,(e.clientX-g.sx)/transform.scale,(e.clientY-g.sy)/transform.scale)};
   const moveMarquee=e=>{const g=gesture.current;if(!g||g.type!=="marquee")return;const left=Math.min(g.x,e.clientX-g.rect.left),top=Math.min(g.y,e.clientY-g.rect.top),right=Math.max(g.x,e.clientX-g.rect.left),bottom=Math.max(g.y,e.clientY-g.rect.top);setSelectionBox({left,top,width:right-left,height:bottom-top});const worldLeft=(left-transform.x)/transform.scale,worldTop=(top-transform.y)/transform.scale,worldRight=(right-transform.x)/transform.scale,worldBottom=(bottom-transform.y)/transform.scale;const directHits=nodes.filter(node=>{const size=nodeSize(node);return node.x<worldRight&&node.x+size.width>worldLeft&&node.y<worldBottom&&node.y+size.height>worldTop}),groups=new Set(directHits.map(node=>node.groupId).filter(Boolean)),hits=nodes.filter(node=>directHits.includes(node)||groups.has(node.groupId)).map(node=>node.id);const next=[...new Set([...g.baseIds,...hits])];setSelectedIds(next);setSelectedId(next.at(-1)||null)};
-  const startEdgeRoute=(e,edge,mode="free")=>{if(locked)return;e.preventDefault();e.stopPropagation();setSelectedEdge(edge.id);setSelectedId(null);setSelectedIds([]);gesture.current={type:"edgeRoute",id:edge.id,mode,sx:e.clientX,sy:e.clientY,controlX:edge.routeX,controlY:edge.routeY,structure:edge.structure};e.currentTarget.setPointerCapture?.(e.pointerId)};
+  const startEdgeRoute=(e,edge,mode="free")=>{if(e.button!==0||locked)return;e.preventDefault();e.stopPropagation();setSelectedEdge(edge.id);setSelectedId(null);setSelectedIds([]);gesture.current={type:"edgeRoute",id:edge.id,mode,sx:e.clientX,sy:e.clientY,controlX:edge.routeX,controlY:edge.routeY,structure:edge.structure};e.currentTarget.setPointerCapture?.(e.pointerId)};
   const startLabelDrag=(event,edge)=>{
     if(event.button!==0||locked||presenting||edge.id===editingEdgeId||activeTool!=="cursor")return;
     event.preventDefault();event.stopPropagation();stageRef.current?.focus({preventScroll:true});
@@ -1023,8 +1095,8 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
     g.position=position;suppressPanClick.current=true;
     setEdges(items=>items.map(edge=>edge.id===g.id?{...edge,labelPosition:position}:edge));
   };
-  const startResize=(e,node,handle)=>{if(locked||node.locked)return;e.stopPropagation();const size=nodeSize(node);gesture.current={type:"resize",id:node.id,handle,sx:e.clientX,sy:e.clientY,x:node.x,y:node.y,w:size.width,h:size.height};e.currentTarget.setPointerCapture?.(e.pointerId)};
-  const startRotate=(e,node)=>{if(locked||node.locked)return;e.stopPropagation();const size=nodeSize(node);const rect=stageRef.current.getBoundingClientRect();const cx=rect.left+transform.x+(node.x+size.width/2)*transform.scale,cy=rect.top+transform.y+(node.y+size.height/2)*transform.scale;gesture.current={type:"rotate",id:node.id,cx,cy,start:Math.atan2(e.clientY-cy,e.clientX-cx),angle:node.rotate||0};e.currentTarget.setPointerCapture?.(e.pointerId)};
+  const startResize=(e,node,handle)=>{if(e.button!==0||locked||node.locked)return;e.stopPropagation();const size=nodeSize(node);gesture.current={type:"resize",id:node.id,handle,sx:e.clientX,sy:e.clientY,x:node.x,y:node.y,w:size.width,h:size.height};e.currentTarget.setPointerCapture?.(e.pointerId)};
+  const startRotate=(e,node)=>{if(e.button!==0||locked||node.locked)return;e.stopPropagation();const size=nodeSize(node);const rect=stageRef.current.getBoundingClientRect();const cx=rect.left+transform.x+(node.x+size.width/2)*transform.scale,cy=rect.top+transform.y+(node.y+size.height/2)*transform.scale;gesture.current={type:"rotate",id:node.id,cx,cy,start:Math.atan2(e.clientY-cy,e.clientX-cx),angle:node.rotate||0};e.currentTarget.setPointerCapture?.(e.pointerId)};
   useEffect(()=>{
     const update=()=>setPanReady(panKeys.current.space||panKeys.current.meta);
     const keyDown=event=>{
@@ -1256,9 +1328,9 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
       }
       if(!onCanvas)return;
       if(modifier&&key==="a"){e.preventDefault();const ids=visibleNodes.map(node=>node.id);setSelectedIds(ids);setSelectedId(ids.at(-1)??null);setSelectedEdge(null);return}
-      if(modifier&&key==="c"){if(selectedIds.length){e.preventDefault();copySelection()}return}
-      if(modifier&&key==="x"){if(selectedIds.length){e.preventDefault();if(nodes.some(node=>selectedIds.includes(node.id)&&node.locked)){notify("Unlock the selection to cut it");return}if(copySelection())removeSelected()}return}
-      if(modifier&&key==="v"){e.preventDefault();pasteSelection();return}
+      if(modifier&&key==="c")return;
+      if(modifier&&key==="x")return;
+      if(modifier&&key==="v")return; // Let the native paste event inspect block clipboard data.
       if(e.key==="Backspace"||e.key==="Delete"){e.preventDefault();removeSelected();return}
       if(e.key==="Enter"&&selectedEdge!==null){e.preventDefault();editEdgeLabel(selectedEdge);return}
       if(e.key==="Enter"&&selectedId!==null&&selectedIds.length===1){
@@ -1323,27 +1395,84 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
     ...(selectedGrouped?[{key:"ungroup",label:"Ungroup selection",detail:"Separate the selected group",run:ungroupSelected}]:[]),
   ];
 
-  return <div onKeyDown={navigateToolbar} className={`${styles.app} ${presenting?styles.presenting:""}`}>
-    {canvasMenu&&!presenting&&<CanvasContextMenu anchor={canvasMenu} title="Canvas" onClose={restore=>{setCanvasMenu(null);if(restore)stageRef.current?.focus({preventScroll:true})}} groups={[
-      [{label:"Add card here",icon:"box",disabled:locked,run:()=>{addNode("box",{x:canvasMenu.x,y:canvasMenu.y});setCanvasMenu(null)}},
-       {label:"Paste",icon:"duplicate",disabled:locked,hint:"⌘V",run:()=>{pasteSelection();setCanvasMenu(null)}}],
-      [{label:"Fit all content",icon:"fit",run:()=>{fit();setCanvasMenu(null)}}]
-    ]}/>}
+  const closeCanvasMenu=restore=>{setCanvasMenu(null);if(restore)stageRef.current?.focus({preventScroll:true})};
+  const openCanvasMenu=event=>{
+    if(presenting||event.defaultPrevented)return;
+    const target=event.target;
+    // Editable text keeps native clipboard/spelling actions; block menus handle
+    // their own events before they reach the canvas.
+    if(target.closest?.('input,textarea,select,[contenteditable="true"],[data-cell-menu],[data-keyboard-toolbar],[data-scope-toolbar]'))return;
+    const keyboard=event.type==="keydown";
+    const cardElement=target.closest?.('[data-export-node]'),lineElement=target.closest?.('[data-canvas-edge]');
+    const card=cardElement?nodes.find(node=>String(node.id)===cardElement.dataset.exportNode):keyboard?selected:null;
+    const line=!card&&(lineElement?edges.find(edge=>String(edge.id)===lineElement.dataset.canvasEdge):keyboard?activeEdge:null);
+    if(!card&&!line&&!keyboard&&target!==stageRef.current&&!target.classList.contains(styles.world)&&!target.classList.contains(styles.edges))return;
+    event.preventDefault();event.stopPropagation();
+    const bounds=stageRef.current.getBoundingClientRect();
+    const element=cardElement||lineElement||(card&&stageRef.current.querySelector(`[data-export-node="${CSS.escape(String(card.id))}"]`))||(line&&stageRef.current.querySelector(`[data-canvas-edge="${CSS.escape(String(line.id))}"]`));
+    const targetBounds=element?.getBoundingClientRect()||bounds;
+    const pointer=!keyboard&&(event.clientX!==0||event.clientY!==0);
+    const point=pointer?{x:event.clientX,y:event.clientY}:{x:targetBounds.left+targetBounds.width/2,y:targetBounds.top+targetBounds.height/2};
+    let canPaste=false;try{canPaste=Boolean(JSON.parse(localStorage.getItem(CLIPBOARD_KEY)||"null")?.nodes?.length)}catch{/* Empty clipboard. */}
+    if(card){setSelectedIds(contextNodeIds(nodes,selectedIds,card.id));setSelectedId(card.id);setSelectedEdge(null)}
+    else if(line){setSelectedEdge(line.id);setSelectedId(null);setSelectedIds([])}
+    setConnectionSource(null);setEditingId(null);
+    stageRef.current.focus({preventScroll:true});
+    setCanvasMenu({...canvasContextPoint(point,bounds,transform),kind:card?"card":line?"line":"canvas",id:card?.id??line?.id,canPaste});
+  };
+  const contextCard=canvasMenu?.kind==="card"?nodes.find(node=>node.id===canvasMenu.id):null;
+  const contextLine=canvasMenu?.kind==="line"?edges.find(edge=>edge.id===canvasMenu.id):null;
+  const contextMultiple=selectedNodes.length>1,contextLocked=locked||selectedNodes.some(node=>node.locked);
+  const contextAction=run=>()=>{closeCanvasMenu(true);run()};
+  const copiedBlocks=canvasMenu?.kind==="card"&&!contextMultiple?readBlockClipboard():null;
+  // Keep context menus focused on clipboard and structure. Appearance, layout,
+  // comments, focus, duplication, and locking already live in the toolbar.
+  const contextGroups=!canvasMenu?[]:contextCard?[
+    [
+      {label:"Copy",icon:"duplicate",hint:"⌘C",run:contextAction(copySelection)},
+      {label:"Cut",icon:"cut",hint:"⌘X",disabled:contextLocked,run:contextAction(()=>{if(copySelection())removeSelected()})},
+      ...(copiedBlocks?[{label:"Paste blocks into card",icon:"paste",disabled:contextLocked,run:contextAction(()=>transferContentBlocks(copiedBlocks,{cardId:contextCard.id}))}]:[]),
+    ],
+    ...(!contextMultiple?[[
+      {label:"Add branch",icon:"branchScope",disabled:contextLocked,children:[[["top","Above"],["right","Right"],["bottom","Below"],["left","Left"]].map(([side,label])=>({label,icon:"plus",run:contextAction(()=>addBranch(contextCard,side))}))]},
+      {label:"Connect to another card",icon:"connect",disabled:contextLocked,run:contextAction(()=>{setActiveTool("link");setConnectionSource({id:contextCard.id});setSelectedIds([]);setSelectedId(null);notify("Choose a target card")})},
+      ...(edges.some(edge=>edge.from===contextCard.id)?[{label:contextCard.collapsed?"Expand branch":"Collapse branch",icon:"branchScope",disabled:contextLocked,run:contextAction(()=>toggleBranch(contextCard.id))}]:[]),
+    ]]:[]),
+    [
+      {label:contextMultiple?"Delete selected cards":"Delete card",icon:"trash",hint:"⌫",danger:true,disabled:contextLocked,run:contextAction(removeSelected)},
+    ],
+  ]:contextLine?[
+    [
+      {label:contextLine.label?"Edit label":"Add label",icon:"connectionLabel",hint:"Enter",disabled:locked,run:contextAction(()=>editEdgeLabel(contextLine.id))},
+      ...(contextLine.label?[{label:"Remove label",icon:"clearFormat",disabled:locked,run:contextAction(()=>updateEdgeLabel(contextLine.id,""))}]:[]),
+    ],
+    ...([contextLine.controlX,contextLine.controlY,contextLine.labelPosition].some(Number.isFinite)?[[
+      {label:"Reset routing",icon:"rotate",disabled:locked,run:contextAction(()=>{checkpoint();setEdges(items=>items.map(edge=>edge.id===contextLine.id?{...edge,controlX:undefined,controlY:undefined,labelPosition:undefined}:edge))})},
+    ]]:[]),
+    [{label:"Delete connection",icon:"trash",hint:"⌫",danger:true,disabled:locked,run:contextAction(removeSelected)}],
+  ]:[
+    [
+      {label:"Add card here",icon:"box",disabled:locked,run:contextAction(()=>addNode("box",{x:canvasMenu.x,y:canvasMenu.y}))},
+      {label:"Paste here",icon:"paste",hint:"⌘V",disabled:locked||!canvasMenu?.canPaste,run:contextAction(()=>pasteSelection({x:canvasMenu.x,y:canvasMenu.y}))},
+    ],
+    [
+      {label:"Select all cards",icon:"group",hint:"⌘A",disabled:!visibleNodes.length,run:contextAction(()=>{const ids=visibleNodes.map(node=>node.id);setSelectedIds(ids);setSelectedId(ids.at(-1)??null);setSelectedEdge(null)})},
+      ...(focusRootId!==null?[{label:"Show all branches",icon:"branchScope",run:contextAction(exitBranchFocus)}]:[]),
+    ],
+  ];
+
+  return <BlockWorkspaceContext.Provider value={{nodes,boardId:project.id,selection:blockSelectionState,setSelection:setBlockSelectionState,onTransfer:locked||presenting?undefined:transferContentBlocks,onNavigate:id=>{const target=nodes.find(node=>String(node.id)===String(id));if(target){setEditingId(null);focusNode(target)}else notify("This card is no longer available")}}}><div onKeyDown={navigateToolbar} className={`${styles.app} ${presenting?styles.presenting:""}`}>
+
+    {canvasMenu&&!presenting&&<CanvasContextMenu anchor={canvasMenu} title={contextCard?(contextMultiple?`${selectedNodes.length} selected cards`:"Card"):contextLine?"Connection":"Canvas"} onClose={closeCanvasMenu} groups={contextGroups}/>}
     {deleteConfirmation}
     <MotionPresence present={Boolean(tourOpen)} kind="fade"><BoardTour onDismiss={dismissTour}/></MotionPresence>
     <Header selectingMultiple={touchMultiSelect} onSelectMultiple={()=>{setTouchMultiSelect(value=>!value);setActiveTool("cursor")}} title={project.title} onRename={renameBoard} saveStatus={saveStatus} onRetrySave={retrySave} backTo={backTo} outlineOpen={outlineOpen} onExport={openExportStudio} onShare={openShare} onHistory={openVersionHistory} onOutline={openOutline} onComments={()=>openComments()} onViews={openViews} onPresent={enterPresentation} presentLabel={focusRootId!==null?"Present focused branch":"Present board"} onUndo={undo} onRedo={redo} canUndo={historyRef.current.undo.length>0} canRedo={historyRef.current.redo.length>0}/>
     {!selected&&!activeEdge&&<Toolbar active={activeTool} onActive={chooseTool} onAdd={addNode}/>}
-    <main tabIndex={0} role="application" aria-label="Board canvas" aria-describedby="board-keyboard-help board-keyboard-selection" ref={stageRef} onContextMenu={event=>{
-      if(presenting||!(event.target===event.currentTarget||event.target.classList.contains(styles.world)||event.target.classList.contains(styles.edges)))return;
-      event.preventDefault();
-      const rect=event.currentTarget.getBoundingClientRect();
-      const x=event.clientX||rect.left+rect.width/2,y=event.clientY||rect.top+rect.height/2;
-      setCanvasMenu({left:x,top:y,x:(x-rect.left-transform.x)/transform.scale,y:(y-rect.top-transform.y)/transform.scale});
-    }} className={`${styles.stage} ${activeTool==="hand"||panReady?styles.handMode:""} ${isPanning?styles.panning:""}`} style={{"--canvas-scale":transform.scale,backgroundPosition:`${transform.x}px ${transform.y}px`,backgroundSize:`${24*transform.scale}px ${24*transform.scale}px`}} onPointerDownCapture={capturePan} onClickCapture={suppressPanActivation} onDoubleClickCapture={suppressPanActivation} onLostPointerCapture={event=>{if(["pan","edgeLabel"].includes(gesture.current?.type)&&gesture.current.pointerId===event.pointerId){touchPointers.current.delete(event.pointerId);finishGesture()}}} onPointerDown={stageDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd} onDoubleClick={e=>{if(!presenting&&(e.target===e.currentTarget||e.target.classList.contains(styles.world))){const rect=e.currentTarget.getBoundingClientRect();addNode("box",{x:(e.clientX-rect.left-transform.x)/transform.scale-SIZE.width/2,y:(e.clientY-rect.top-transform.y)/transform.scale-SIZE.height/2})}}}>
+    <main tabIndex={0} role="application" aria-label="Board canvas" aria-describedby="board-keyboard-help board-keyboard-selection" ref={stageRef} onContextMenu={openCanvasMenu} onKeyDown={event=>{if(event.key==="ContextMenu"||(event.shiftKey&&event.key==="F10"))openCanvasMenu(event)}} className={`${styles.stage} ${activeTool==="hand"||panReady?styles.handMode:""} ${isPanning?styles.panning:""}`} style={{"--canvas-scale":transform.scale,backgroundPosition:`${transform.x}px ${transform.y}px`,backgroundSize:`${24*transform.scale}px ${24*transform.scale}px`}} onPointerDownCapture={capturePan} onClickCapture={suppressPanActivation} onDoubleClickCapture={suppressPanActivation} onLostPointerCapture={event=>{if(["pan","edgeLabel"].includes(gesture.current?.type)&&gesture.current.pointerId===event.pointerId){touchPointers.current.delete(event.pointerId);finishGesture()}}} onPointerDown={stageDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd} onDoubleClick={e=>{if(!presenting&&(e.target===e.currentTarget||e.target.classList.contains(styles.world))){const rect=e.currentTarget.getBoundingClientRect();addNode("box",{x:(e.clientX-rect.left-transform.x)/transform.scale-SIZE.width/2,y:(e.clientY-rect.top-transform.y)/transform.scale-SIZE.height/2})}}}>
       <p id="board-keyboard-help" className={styles.keyboardOnly}>Use arrow keys to select shapes, Shift and arrows to extend selection, Enter to edit, and Delete to remove. Tab moves to controls. Use left and right brackets to select connections. Press question mark for all shortcuts.</p>
       <p id="board-keyboard-selection" className={styles.keyboardOnly} role="status" aria-live="polite" aria-atomic="true">{selectedEdge!==null?`Connection: ${nodes.find(node=>node.id===activeEdge?.from)?.title||"Untitled"} to ${nodes.find(node=>node.id===activeEdge?.to)?.title||"Untitled"}`:selected?`${selected.kind==="frame"?"Frame":"Shape"}: ${selected.title||"Untitled"}${selectedIds.length>1?`, ${selectedIds.length} items selected`:" selected"}`:"No item selected"}</p>
       <div className={styles.world} style={{width:WORLD.width,height:WORLD.height,transform:`translate3d(${Math.round(transform.x)}px,${Math.round(transform.y)}px,0) scale(${transform.scale})`}}>
-        <svg className={styles.edges} width={WORLD.width} height={WORLD.height}>{displayEdgeData.map(edge=>edge&&<g key={edge.id} className={`${edge.id===selectedEdge?styles.selectedEdge:""} ${styles[`${edge.pattern}Edge`]||""} ${styles[`${edge.weight}Edge`]||""}`} onDoubleClick={e=>{e.stopPropagation();editEdgeLabel(edge.id)}} onClick={e=>{e.stopPropagation();stageRef.current?.focus({preventScroll:true});setSelectedEdge(edge.id);setSelectedId(null);setSelectedIds([])}}><path className={styles.edgeHit} d={edge.path}/><path className={styles.edgeLine} d={edge.path}/>{edge.id===selectedEdge&&edge.id!==editingEdgeId&&<g onDoubleClick={event=>{event.preventDefault();event.stopPropagation()}}>{edge.handles.map((handle,index)=><g key={`${handle.mode}-${index}`}>{handle.mode==="free"?<><circle className={styles.routeHandleHalo} cx={handle.x} cy={handle.y} r="14"/><circle className={styles.routeHandle} cx={handle.x} cy={handle.y} r="6" onPointerDown={e=>startEdgeRoute(e,edge,handle.mode)}/></>:<><rect className={styles.segmentHandleHalo} x={handle.x-(handle.mode==="x"?8:14)} y={handle.y-(handle.mode==="x"?14:8)} width={handle.mode==="x"?16:28} height={handle.mode==="x"?28:16} rx="8"/><rect className={`${styles.segmentHandle} ${handle.mode==="x"?styles.routeHandleX:styles.routeHandleY}`} x={handle.x-(handle.mode==="x"?4:9)} y={handle.y-(handle.mode==="x"?9:4)} width={handle.mode==="x"?8:18} height={handle.mode==="x"?18:8} rx="4" onPointerDown={e=>startEdgeRoute(e,edge,handle.mode)}/></>}</g>)}<circle className={styles.endpointHandle} cx={edge.start.x} cy={edge.start.y} r="6"/><circle className={styles.endpointHandle} cx={edge.end.x} cy={edge.end.y} r="6"/></g>}
+        <svg className={styles.edges} width={WORLD.width} height={WORLD.height}>{displayEdgeData.map(edge=>edge&&<g key={edge.id} data-canvas-edge={edge.id} className={`${edge.id===selectedEdge?styles.selectedEdge:""} ${styles[`${edge.pattern}Edge`]||""} ${styles[`${edge.weight}Edge`]||""}`} onDoubleClick={e=>{e.stopPropagation();editEdgeLabel(edge.id)}} onClick={e=>{e.stopPropagation();stageRef.current?.focus({preventScroll:true});setSelectedEdge(edge.id);setSelectedId(null);setSelectedIds([])}}><path className={styles.edgeHit} d={edge.path}/><path className={styles.edgeLine} d={edge.path}/>{edge.id===selectedEdge&&edge.id!==editingEdgeId&&<g onDoubleClick={event=>{event.preventDefault();event.stopPropagation()}}>{edge.handles.map((handle,index)=><g key={`${handle.mode}-${index}`}>{handle.mode==="free"?<><circle className={styles.routeHandleHalo} cx={handle.x} cy={handle.y} r="14"/><circle className={styles.routeHandle} cx={handle.x} cy={handle.y} r="6" onPointerDown={e=>startEdgeRoute(e,edge,handle.mode)}/></>:<><rect className={styles.segmentHandleHalo} x={handle.x-(handle.mode==="x"?8:14)} y={handle.y-(handle.mode==="x"?14:8)} width={handle.mode==="x"?16:28} height={handle.mode==="x"?28:16} rx="8"/><rect className={`${styles.segmentHandle} ${handle.mode==="x"?styles.routeHandleX:styles.routeHandleY}`} x={handle.x-(handle.mode==="x"?4:9)} y={handle.y-(handle.mode==="x"?9:4)} width={handle.mode==="x"?8:18} height={handle.mode==="x"?18:8} rx="4" onPointerDown={e=>startEdgeRoute(e,edge,handle.mode)}/></>}</g>)}<circle className={styles.endpointHandle} cx={edge.start.x} cy={edge.start.y} r="6"/><circle className={styles.endpointHandle} cx={edge.end.x} cy={edge.end.y} r="6"/></g>}
           {(edge.label||edge.id===editingEdgeId)&&<g className={`${styles.edgeLabel} ${!locked&&!presenting?styles.editableEdgeLabel:""} ${edge.id===draggingLabelId?styles.draggingEdgeLabel:""}`} transform={`translate(${edge.labelPoint.x},${edge.labelPoint.y})`}
             onPointerDown={event=>startLabelDrag(event,edge)}
             role={!locked&&!presenting&&edge.id!==editingEdgeId?"button":undefined} tabIndex={!locked&&!presenting&&edge.id!==editingEdgeId?0:undefined} aria-label={`Edit connection label: ${edge.label||"Add label"}`}
@@ -1353,7 +1482,7 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
         </g>)}</svg>
         {typeof snapGuides.x==="number"&&<div className={styles.guideVertical} style={{left:snapGuides.x}}/>}
         {typeof snapGuides.y==="number"&&<div className={styles.guideHorizontal} style={{top:snapGuides.y}}/>}
-        {visibleNodes.map(node=><Node key={node.id} node={node} childCount={edges.filter(edge=>edge.from===node.id).length} blockedBy={edges.filter(edge=>edge.to===node.id&&edge.relation==="blocks"&&nodes.find(source=>source.id===edge.from)?.status!=="done").length} progress={branchMetrics.get(node.id)} assignee={teamMembers.find(member=>member.id===node.assigneeId)} selected={selectedIds.includes(node.id)} transformable={selectedIds.length===1&&node.id===selectedId} connecting={node.id===connectionSource?.id} editing={node.id===editingId} onSelect={selectNode} onDrag={startDrag} onEdit={editNode} onRichChange={updateRichText} onCellChange={updateCell} onCellHeight={measureCell} onUpgrade={convertCell} onUndo={undo} onRedo={redo} readOnly={presenting} onBranch={branchAction} onResize={startResize} onRotate={startRotate} onToggleCollapse={toggleBranch} onComments={commentsOpen&&!presenting?openShapeComments:undefined}/>) }
+        {visibleNodes.map(node=><Node key={node.id} node={node} childCount={edges.filter(edge=>edge.from===node.id).length} blockedBy={edges.filter(edge=>edge.to===node.id&&edge.relation==="blocks"&&nodes.find(source=>source.id===edge.from)?.status!=="done").length} progress={branchMetrics.get(node.id)} assignee={teamMembers.find(member=>member.id===node.assigneeId)} selected={selectedIds.includes(node.id)} transformable={selectedIds.length===1&&node.id===selectedId} connecting={node.id===connectionSource?.id} editing={node.id===editingId} onSelect={selectNode} onDrag={startDrag} onEdit={editNode} onRichChange={updateRichText} onCellChange={locked?undefined:updateCell} onCellHeight={measureCell} onUpgrade={convertCell} onUndo={undo} onRedo={redo} readOnly={presenting} onBranch={branchAction} onResize={startResize} onRotate={startRotate} onToggleCollapse={toggleBranch} onComments={commentsOpen&&!presenting?openShapeComments:undefined}/>) }
       </div>
       {editingEdge&&<EdgeLabelEditor key={`edge-label-${editingEdge.id}`} value={edgeLabelDraft} onChange={setEdgeLabelDraft} scale={transform.scale} width={Math.min(180,Math.max(40,(editingEdge.label||"Add a label…").length*5.7+16))}
         point={{x:Math.round(transform.x)+editingEdge.labelPoint.x*transform.scale,y:Math.round(transform.y)+editingEdge.labelPoint.y*transform.scale}}
@@ -1413,5 +1542,5 @@ export default function Canvas({project,backTo="/projects",onRename,onSave}) {
     <MotionPresence present={Boolean(sprintsOpen)} kind="overlay"><SprintPlanner sprints={sprints} nodes={nodes} onAdd={addSprint} onDelete={deleteSprint} onAssign={assignSprint} onEstimate={setEstimate} onChoose={focusNode} onClose={()=>setSprintsOpen(false)}/></MotionPresence>
     <MotionPresence present={Boolean(risksOpen)} kind="overlay"><RiskRegister nodes={nodes} onSave={saveRisk} onClear={clearRisk} onChoose={focusNode} onClose={()=>setRisksOpen(false)}/></MotionPresence>
     <MotionPresence present={Boolean(historyOpen)} kind="overlay"><VersionHistory versions={versions} loading={versionsLoading} currentBoard={{nodes,edges,globalSettings,savedViews}} onRestore={restoreVersion} onDelete={deleteMilestone} onClose={()=>setHistoryOpen(false)}/></MotionPresence>
-  </div>;
+  </div></BlockWorkspaceContext.Provider>;
 }

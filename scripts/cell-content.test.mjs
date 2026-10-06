@@ -223,6 +223,10 @@ test('attachments and nested content survive board snapshots and both share mode
 });
 test('cell geometry grows with content, retaining legacy sizes', () => {
   assert.deepEqual(nodeSize({}), { width: 228, height: 92 });
+  assert.deepEqual(nodeSize({ contentHeight: 248 }), { width: 228, height: 248 });
+  assert.deepEqual(nodeSize({ w: 180, h: 140, contentHeight: 310, rotate: 30 }), { width: 180, height: 310 });
+  assert.deepEqual(nodeSize({ w: 180, h: 140, contentHeight: 70 }), { width: 180, height: 140 });
+  assert.deepEqual(nodeSize({ root: true, contentHeight: 180 }), { width: 252, height: 180 });
   assert.deepEqual(nodeSize({ content: [], w: 200, h: 80, contentHeight: 360 }), { width: 320, height: 360 });
   const node = { id: 1, title: 'R&D', x: 0, y: 0, content: [textBlock('A < B')], w: 380, contentHeight: 160 };
   const svg = createBoardSvg([node], []).svg;

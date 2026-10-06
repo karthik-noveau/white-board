@@ -1,5 +1,6 @@
 import DOMPurify from "dompurify";
-import { normalizeCellContent } from './cellContent';
+import { normalizeCellContent } from './cellContent.js';
+import { normalizeLinkURL, setLinkBehavior } from './textLinks.js';
 
 const richTextTags = ["b", "strong", "i", "em", "u", "s", "strike", "del", "br", "div", "p", "span", "ul", "ol", "li", "blockquote", "pre", "code", "a", "font", "sub", "sup"];
 const textStyles = new Set(["color", "background-color", "font-size", "font-family", "font-weight", "font-style", "text-decoration", "text-align", "line-height", "letter-spacing", "white-space"]);
@@ -7,9 +8,15 @@ const textStyles = new Set(["color", "background-color", "font-size", "font-fami
 function cleanRichText(html) {
   const fragment = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: richTextTags,
-    ALLOWED_ATTR: ["href", "title", "style", "color", "face", "size", "start", "type"],
+    ALLOWED_ATTR: ["href", "title", "target", "style", "color", "face", "size", "start", "type"],
     RETURN_DOM_FRAGMENT: true,
   });
+  for (const link of fragment.querySelectorAll('a')) {
+    const url = normalizeLinkURL(link.getAttribute('href'));
+    if (!url) { link.replaceWith(...link.childNodes); continue; }
+    link.setAttribute('href', url);
+    setLinkBehavior(link, link.getAttribute('target') === '_blank');
+  }
   for (const element of fragment.querySelectorAll("[style]")) {
     const declarations = [...element.style].map(key => [key, element.style.getPropertyValue(key)]);
     element.removeAttribute("style");

@@ -2,9 +2,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom";
 import useMediaQuery from "../lib/useMediaQuery";
 import styles from "../styles/canvas.module.css";
-import Icon from "./BoardIcon";
+import TextFormattingToolbar from './TextFormattingToolbar';
+import TextLinkDialog from './TextLinkDialog';
 import CellSlashMenu from './CellSlashMenu';
 import { commandQuery } from '../lib/cellContent';
+import { observeTextSelection } from '../lib/textSelectionToolbar';
+import { textLinkDraft, applyTextLink } from '../lib/textLinks';
 
 const commands = ["bold", "italic", "underline", "strikeThrough", "insertOrderedList", "insertUnorderedList"];
 const stopPropagation = event => event.stopPropagation();
@@ -18,11 +21,14 @@ export default function RichTextEditor({ node, onChange, onFinish, onUpgrade }) 
   const titleRef = useRef(null);
   const noteRef = useRef(null);
   const savedSelection = useRef(null);
+  const selectionObservers = useRef([]);
   const finishing = useRef(false);
   const prompting = useRef(false);
   const [initialContent] = useState(() => ({ ...node }));
   const [activeFormats, setActiveFormats] = useState({});
   const [slash, setSlash] = useState(null);
+  const [tools, setTools] = useState(null);
+  const [link, setLink] = useState(null);
 
   useLayoutEffect(() => {
     const dialog = mobileDialogRef.current;
@@ -58,10 +64,20 @@ export default function RichTextEditor({ node, onChange, onFinish, onUpgrade }) 
   }, []);
 
   useEffect(() => {
-    document.addEventListener("selectionchange", rememberSelection);
+    if (link) return;
+    const observers = [titleRef.current, noteRef.current].map(editor => observeTextSelection(editor, {
+      onSave: range => { savedSelection.current = { editor, range }; },
+      onHide: () => setTools(current => current?.editor === editor ? null : current),
+      onShow: range => {
+        const rect = range.getBoundingClientRect();
+        setTools({ editor, range, left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, container: mobileDialogRef.current });
+        rememberSelection();
+      },
+    }));
+    selectionObservers.current = observers;
     rememberSelection();
-    return () => document.removeEventListener("selectionchange", rememberSelection);
-  }, [rememberSelection]);
+    return () => { observers.forEach(observer => observer.dispose()); selectionObservers.current = []; };
+  }, [rememberSelection, link]);
 
   const commit = useCallback(() => {
     if (!titleRef.current || !noteRef.current) return;
@@ -119,15 +135,19 @@ export default function RichTextEditor({ node, onChange, onFinish, onUpgrade }) 
   };
 
   const addLink = () => {
+    const saved = savedSelection.current;
+    const draft = saved && textLinkDraft(saved.editor, saved.range);
+    if (!draft) return;
     prompting.current = true;
-    const url = window.prompt("Paste a link");
+    setTools(null); setSlash(null); setLink({ ...draft, editor: saved.editor });
+  };
+  const closeLink = () => {
+    setLink(null); restoreSelection();
     prompting.current = false;
-    if (url?.trim()) {
-      const value = url.trim();
-      if (/^(https?:\/\/|mailto:|tel:)/i.test(value)) format("createLink", value);
-      else if (!/^[a-z][a-z\d+.-]*:/i.test(value)) format("createLink", `https://${value}`);
-      else restoreSelection();
-    } else restoreSelection();
+  };
+  const saveLink = values => {
+    applyTextLink(link.editor, link, values);
+    rememberSelection(); commit(); closeLink();
   };
 
   const input = () => {
@@ -148,41 +168,32 @@ export default function RichTextEditor({ node, onChange, onFinish, onUpgrade }) 
   };
   const keyDown = event => {
     event.stopPropagation();
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k' && !event.nativeEvent.isComposing) {
+      event.preventDefault(); rememberSelection(); addLink(); return;
+    }
     if (event.key === "Escape" && !event.isComposing && !event.nativeEvent.isComposing) {
       event.preventDefault();
       finish();
     }
   };
-  const button = (command, label, content, value = null) => <button type="button" title={label} aria-label={label} aria-pressed={activeFormats[value || command] ?? undefined} onClick={() => format(command, value)}>{content}</button>;
-
   const editor = <div ref={rootRef} className={styles.richTextEditor} onPointerDown={stopPropagation} onClick={stopPropagation} onDoubleClick={stopPropagation} onKeyDown={keyDown} onBlur={event => {
-    if (!event.currentTarget.contains(event.relatedTarget) && document.hasFocus()) finish();
+    if (!event.currentTarget.contains(event.relatedTarget) && !event.relatedTarget?.closest?.('[data-rich-text-tools]') && document.hasFocus()) finish();
   }}>
     {mobile && <header><h2>Edit shape</h2><button type="button" onPointerDown={event => event.preventDefault()} onClick={finish}>Done</button></header>}
-    <div className={styles.richTextBar} role="toolbar" aria-label="Text formatting" onPointerDown={event => {
-      rememberSelection();
-      event.preventDefault();
-    }}>
-      {button("bold", "Bold", <b>B</b>)}
-      {button("italic", "Italic", <i>I</i>)}
-      {button("underline", "Underline", <u>U</u>)}
-      {button("strikeThrough", "Strikethrough", <s>S</s>)}
-      <span/>
-      <button type="button" title="Insert link" aria-label="Insert link" onClick={addLink}><Icon name="link" size={15}/></button>
-      <span/>
-      {button("insertOrderedList", "Numbered list", <b className={styles.listIcon}>1.</b>)}
-      {button("insertUnorderedList", "Bulleted list", <b className={styles.listIcon}>•</b>)}
-      {button("formatBlock", "Quote", "❝", "blockquote")}
-      {button("formatBlock", "Code block", "</>", "pre")}
-      <span/>
-      {button("removeFormat", "Clear formatting", "Tx")}
-      {onUpgrade && <><span/><button type="button" title="Insert content — type / in the note" aria-label="Insert content" onClick={() => setSlash({ query: '', anchor: { element: noteRef.current } })}>/</button></>}
-    </div>
+    {tools && !slash && !link && <TextFormattingToolbar anchor={tools} formats={activeFormats} onFormat={format} onLink={addLink} blockStyles onClose={() => {
+      selectionObservers.current.forEach(observer => observer.dismiss()); setTools(null); restoreSelection();
+    }}/>}
     {mobile && <span className={styles.mobileEditorLabel}>Title</span>}
     <div ref={titleRef} className={styles.richTitle} contentEditable suppressContentEditableWarning role="textbox" aria-label="Shape title" aria-multiline="true" data-field="title" onInput={input} onPointerUp={rememberSelection} onKeyUp={rememberSelection}/>
     {mobile && <span className={styles.mobileEditorLabel}>Note</span>}
     <div ref={noteRef} className={styles.richNote} contentEditable suppressContentEditableWarning role="textbox" aria-label="Shape note" aria-multiline="true" data-field="note" onInput={input} onPointerUp={rememberSelection} onKeyUp={rememberSelection}/>
     {slash && <CellSlashMenu key={slash.query} query={slash.query} anchor={slash.anchor} onChoose={insertBlock} onClose={() => setSlash(null)}/>}
+    {link && <TextLinkDialog draft={link} onApply={saveLink} onRemove={() => saveLink(null)} onClose={closeLink}/>}
   </div>;
-  return mobile ? createPortal(<dialog ref={mobileDialogRef} className={styles.mobileEditor} aria-label="Edit shape" onCancel={event => { event.preventDefault(); finish(); }} onKeyDown={stopPropagation} onKeyUp={stopPropagation}>{editor}</dialog>, document.body) : editor;
+  return mobile ? <>
+    {/* Measure the card at its canvas width while the mobile editor is in a dialog. */}
+    <div className={styles.richTitle} dangerouslySetInnerHTML={node.titleHtml != null ? { __html: node.titleHtml } : undefined}>{node.titleHtml == null ? node.title : undefined}</div>
+    <div className={styles.richNote} dangerouslySetInnerHTML={node.noteHtml != null ? { __html: node.noteHtml } : undefined}>{node.noteHtml == null ? node.note : undefined}</div>
+    {createPortal(<dialog ref={mobileDialogRef} className={styles.mobileEditor} aria-label="Edit shape" onCancel={event => { event.preventDefault(); finish(); }} onKeyDown={stopPropagation} onKeyUp={stopPropagation}>{editor}</dialog>, document.body)}
+  </> : editor;
 }

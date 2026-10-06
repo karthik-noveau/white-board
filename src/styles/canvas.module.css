@@ -55,14 +55,14 @@
 .node:not(.selectedNode) .branchLeft{left:-22px;top:calc(50% - 22px)}
 .node:not(.selectedNode) .branch span{left:17px;top:17px;right:auto;bottom:auto;width:10px;height:10px;border:1.5px solid #7555d0;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(51,35,98,.2);transition:background .12s ease,transform .12s ease}
 .node:not(.selectedNode) .branch:before{content:"";position:absolute;opacity:0;transition:opacity .12s ease}
-.node:not(.selectedNode) .branchTop:before,.node:not(.selectedNode) .branchBottom:before{left:21px;height:15px;border-left:1px dashed #8d73dc}
-.node:not(.selectedNode) .branchTop:before{top:-8px}.node:not(.selectedNode) .branchBottom:before{top:37px}
-.node:not(.selectedNode) .branchLeft:before,.node:not(.selectedNode) .branchRight:before{top:21px;width:15px;border-top:1px dashed #8d73dc}
-.node:not(.selectedNode) .branchLeft:before{left:-8px}.node:not(.selectedNode) .branchRight:before{left:37px}
+.node:not(.selectedNode) .branchTop:before,.node:not(.selectedNode) .branchBottom:before{left:21.5px;height:10px;border-left:1px dashed #8d73dc}
+.node:not(.selectedNode) .branchTop:before{top:7px}.node:not(.selectedNode) .branchBottom:before{top:27px}
+.node:not(.selectedNode) .branchLeft:before,.node:not(.selectedNode) .branchRight:before{top:21.5px;width:10px;border-top:1px dashed #8d73dc}
+.node:not(.selectedNode) .branchLeft:before{left:7px}.node:not(.selectedNode) .branchRight:before{left:27px}
 .node:not(.selectedNode) .branch b{width:22px;height:22px;border:0;background:#7555d0;color:#fff;box-shadow:0 5px 13px rgba(83,55,164,.26);font-size:var(--nova-text-sm);opacity:0;transform:scale(.72);transition:opacity .12s ease,transform .12s ease}
-.node:not(.selectedNode) .branchTop b{left:11px;right:auto;top:-22px;bottom:auto}.node:not(.selectedNode) .branchRight b{left:44px;right:auto;top:11px;bottom:auto}.node:not(.selectedNode) .branchBottom b{left:11px;right:auto;top:44px;bottom:auto}.node:not(.selectedNode) .branchLeft b{left:-22px;right:auto;top:11px;bottom:auto}
+.node:not(.selectedNode) .branchTop b{left:11px;right:auto;top:-15px;bottom:auto}.node:not(.selectedNode) .branchRight b{left:37px;right:auto;top:11px;bottom:auto}.node:not(.selectedNode) .branchBottom b{left:11px;right:auto;top:37px;bottom:auto}.node:not(.selectedNode) .branchLeft b{left:-15px;right:auto;top:11px;bottom:auto}
 .node:not(.selectedNode) .branch:hover span{background:#7555d0;transform:scale(1.08)}
-.node:not(.selectedNode) .branch:hover:before{opacity:1}
+.node:not(.selectedNode) .branch:hover:before,.node:not(.selectedNode) .branch:focus-visible:before{opacity:1}
 .node:not(.selectedNode) .branch:hover b{opacity:1;transform:scale(1)}
 
 .edgeBar{height:44px;padding:5px 6px 5px 12px;gap:9px;border-radius:11px}.edgeBar>span{color:var(--nova-muted);font-size:var(--nova-text-sm);font-weight:650;text-transform:uppercase;letter-spacing:.06em}.lineToggle{height:32px;padding:3px;display:flex;gap:2px;border-radius:7px;background:var(--nova-page)}.edgeBar .lineToggle button{height:26px;padding:0 10px;border-radius:5px;background:transparent;color:var(--nova-text)}.edgeBar .lineToggle .activeLineStyle{background:var(--nova-surface);color:var(--nova-primary);box-shadow:0 1px 4px rgba(31,29,40,.12);font-weight:600}.edgeBar .edgeDelete{width:31px;height:31px;padding:0;display:grid;place-items:center;background:transparent;color:var(--nova-muted)}.edgeBar .edgeDelete:hover{background:#f7eaea;color:#b84242}
@@ -280,24 +280,20 @@
 /* In-place rich text editing for shape content. */
 .editingNode{z-index:18;cursor:text;user-select:text;-webkit-user-select:text;box-shadow:0 0 0 5px rgba(109,75,195,.08),0 14px 34px rgba(27,27,34,.1)!important}
 .richTextEditor{display:contents}
-.node .richTitle,.node .richNote{width:100%;min-width:0;flex-shrink:0;overflow:visible;outline:0;cursor:text;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;padding:2px 5px;border-radius:5px;text-align:center}
-.node .richTitle{min-height:22px;color:#202027;font:560 var(--nova-text-sm)/1.3 var(--nova-font-family);letter-spacing:-.015em;background:rgba(255,255,255,.58);font-size:var(--nova-text-md);font-family:var(--nova-font-family);line-height:var(--nova-leading-tight)}
-.node .richNote{min-height:20px;margin-top:5px;color:var(--nova-muted);font-size:var(--nova-text-sm);letter-spacing:.01em;background:rgba(255,255,255,.42);line-height:var(--nova-leading-ui)}
+.nodeText{display:flex;flex-direction:column;align-items:center;flex:none;width:100%;min-width:0;}
+.nodeText>h3,.nodeText>p{flex:none;min-height:1lh;margin:0;overflow:visible;text-overflow:clip;white-space:pre-wrap;overflow-wrap:anywhere;}
+.nodeText>p{margin-top:var(--nova-space-1);letter-spacing:.01em;}
+.frameNode .nodeText{align-items:stretch;}
+.node .richTitle,.node .richNote{width:100%;min-width:0;flex-shrink:0;overflow:visible;outline:0;cursor:text;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;padding:0;border-radius:5px;text-align:center}
+.node .richTitle{min-height:1lh;color:#202027;font:560 var(--nova-text-sm)/1.3 var(--nova-font-family);letter-spacing:-.015em;background:rgba(255,255,255,.58);font-size:var(--nova-text-md);font-family:var(--nova-font-family);line-height:var(--nova-leading-tight)}
+.node .richNote{min-height:1lh;margin-top:var(--nova-space-1);color:var(--nova-muted);font-size:var(--nova-text-sm);letter-spacing:.01em;background:rgba(255,255,255,.42);line-height:var(--nova-leading-ui)}
 .rootNode h3,.rootNode .richTitle{color:var(--root-text,#fff)}
 .rootNode .richTitle{font-size:var(--nova-text-md)}
 .rootNode p,.rootNode .richNote{color:var(--root-note,rgba(255,255,255,.8))}
 .rootNode .richNote{font-size:var(--nova-text-sm)}
 .rootNode .richTitle,.rootNode .richNote{background:var(--root-editor,rgba(255,255,255,.1))}
 .node ul,.node ol{margin:2px 0;padding-left:18px;text-align:left}
-.richTextBar{position:absolute;z-index:30;left:50%;top:-47px;height:36px;padding:4px;display:flex;align-items:center;gap:2px;transform:translateX(-50%);border:1px solid rgba(35,34,42,.1);border-radius:9px;background:var(--nova-surface);box-shadow:0 9px 26px rgba(28,26,38,.13)}
-.richTextBar button{width:28px;height:28px;padding:0;display:grid;place-items:center;border:0;border-radius:6px;background:transparent;color:var(--nova-text);font-size:var(--nova-text-sm);cursor:pointer}.richTextBar button[aria-pressed="true"],.richTextBar button:hover{background:var(--nova-primary-soft);color:var(--nova-primary)}.richTextBar>span{width:1px;height:19px;margin:0 2px;background:var(--nova-border)}
 
-/* Google Chat-style compact formatting strip. */
-.richTextBar{top:-49px;height:38px;padding:4px 5px;gap:1px;border-radius:10px;white-space:nowrap}
-.richTextBar button{width:27px;height:29px;border-radius:6px;font-size:var(--nova-text-sm);font-weight:600}
-.richTextBar button[aria-label="Code block"]{width:34px;font-size:var(--nova-text-sm);letter-spacing:-.06em}
-.richTextBar button[aria-label="Clear formatting"]{width:31px;font-size:var(--nova-text-sm)}
-.richTextBar .listIcon{font-size:var(--nova-text-sm);font-weight:700}.richTextBar>span{height:20px;margin:0 3px}
 .node blockquote{margin:2px 0;padding-left:7px;border-left:2px solid currentColor;text-align:left;opacity:.82}
 .node pre{margin:2px 0;padding:3px 5px;border-radius:4px;background:rgba(25,25,32,.08);font:var(--nova-text-xs)/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;text-align:left;white-space:pre-wrap}
 /* Local recovery history */
@@ -329,8 +325,8 @@
 .presentationBar>.notesActive{background:var(--nova-primary-soft);color:var(--nova-primary);font-size:var(--nova-text-sm)}.presenterNotes{position:absolute;z-index:69;right:22px;bottom:84px;width:280px;padding:13px 14px;border:1px solid rgba(35,34,42,.12);border-radius:11px;background:rgba(255,255,255,.96);box-shadow:0 14px 36px rgba(28,26,38,.16);backdrop-filter:blur(16px)}.presenterNotes small{color:var(--nova-primary);font-size:var(--nova-text-xs);font-weight:750;letter-spacing:.12em}.presenterNotes p{margin:7px 0 0;color:var(--nova-text);font-size:var(--nova-text-sm);line-height:1.55;white-space:pre-wrap}
 
 /* Local comments stay attached to shapes and travel with project exports. */
-/* Reserve badge space even while comments are hidden so text stays in place. */
-.node{padding-bottom:32px}
+/* Reserve footer space only for badges that actually sit inside the card. */
+.node:not(.contentNode):has(>.nodeBadges:not(:empty),>.nodeStatus,>.nodeBlocked){padding-bottom:32px}
 .nodeBadges{position:absolute;z-index:8;right:8px;bottom:5px;display:flex;align-items:center;gap:4px;pointer-events:none}
 .nodeComments{position:absolute;z-index:8;right:12px;bottom:-24px;min-width:28px;height:28px;padding:3px;display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid var(--nova-surface);border-radius:999px;background:var(--nova-surface);box-shadow:0 0 0 1px color-mix(in srgb,var(--nova-primary) 16%,transparent),0 3px 8px #28203f14;color:var(--nova-primary);line-height:1;pointer-events:none;transition:background .16s ease,color .16s ease,box-shadow .16s ease}
 .nodeCommentIcon{width:20px;height:20px;flex:none;display:grid;place-items:center;border-radius:50%;background:var(--nova-primary);color:#fff;transition:background .16s ease}
@@ -625,9 +621,6 @@
 .mobileEditor header{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .mobileEditor h2{margin:0;font-size:var(--nova-text-lg);letter-spacing:-.4px}
 .mobileEditor header button{min-width:64px;min-height:44px;padding:8px 14px;border:0;border-radius:10px;background:var(--nova-primary);color:#fff;font-size:var(--nova-text-sm);font-weight:600}
-.mobileEditor .richTextBar{position:sticky;z-index:1;top:0;left:auto;transform:none;width:100%;max-width:100%;height:56px;margin:12px 0;padding:5px;overflow-x:auto;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:thin;justify-content:flex-start;background:var(--nova-surface-tint)}
-.mobileEditor .richTextBar button{flex:0 0 44px;width:44px;min-width:44px;height:44px;font-size:var(--nova-text-md)}
-.mobileEditor .richTextBar>span{flex-shrink:0}
 .mobileEditorLabel{display:block;margin:14px 0 7px;color:var(--nova-muted);font-size:var(--nova-text-sm);font-weight:600}
 .mobileEditor .richTitle,.mobileEditor .richNote{display:block;width:100%;min-height:56px;max-height:30dvh;margin:0;padding:12px;border:1px solid var(--nova-border);border-radius:10px;background:var(--nova-surface);color:var(--nova-primary);font-size:var(--nova-text-md);font-weight:400;line-height:1.6;text-align:left;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;touch-action:pan-y;user-select:text;-webkit-user-select:text}
 .mobileEditor .richTitle:focus,.mobileEditor .richNote:focus{outline:2px solid var(--nova-primary-border);outline-offset:1px}
@@ -745,7 +738,6 @@
 .touchSelectionHint button{min-height:44px;padding:0 12px;border:0;border-radius:8px;background:var(--nova-primary-soft);color:var(--nova-primary);font-family:var(--nova-font-family);font-size:var(--nova-text-xs);font-weight:600;cursor:pointer}
 @media(max-width:760px){.commentTarget{font-size:var(--nova-text-sm)}.commentScopeTrigger{font-size:var(--nova-text-sm)}.commentsPanel .commentEmpty b{font-size:var(--nova-text-sm)}.commentsPanel .commentEmpty p{font-size:var(--nova-text-sm)}}
 .mobileEditor header{position:sticky;top:0;z-index:3;background:var(--nova-surface)}
-.mobileEditor .richTextBar{top:56px}
 @media(max-height:500px) and (max-width:760px) and (orientation:landscape),(max-height:500px) and (max-width:950px) and (orientation:landscape) and (pointer:coarse){
   .toolbar{top:calc(var(--board-header) + 8px);left:8px;transform:none;max-height:calc(var(--app-height,100dvh) - var(--board-header) - 16px);width:54px;flex-direction:column;flex-wrap:nowrap;overflow-y:auto;scrollbar-width:thin}
   .toolbar button,.toolbar .labeledTool{width:42px;min-width:42px;height:44px;padding:4px}
@@ -826,7 +818,7 @@
 
 /* Surface entrances use translate separately from board positioning transforms. */
 .app{animation:boardViewIn var(--nova-motion-page) var(--nova-motion-ease)}
-.toolbar,.selectionDock,.edgeBar,.focusBar,.presentationBar,.presenterNotes,.touchSelectionHint,.richTextBar{animation:controlIn var(--nova-motion-fast) var(--nova-motion-ease)}
+.toolbar,.selectionDock,.edgeBar,.focusBar,.presentationBar,.presenterNotes,.touchSelectionHint{animation:controlIn var(--nova-motion-fast) var(--nova-motion-ease)}
 .mobileEditor[open]{animation:editorIn var(--nova-motion-enter) var(--nova-motion-ease)}
 .mobileEditor[open]::backdrop{animation:boardViewIn var(--nova-motion-enter) var(--nova-motion-ease)}
 @keyframes boardViewIn{from{opacity:0}to{opacity:1}}
@@ -839,7 +831,9 @@
 .versionCompare>footer .versionPreviewButton{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--nova-border);background:var(--nova-surface);color:var(--nova-text)}
 .versionCompare>footer .versionPreviewButton:hover{border-color:var(--nova-primary-border);background:var(--nova-primary-soft);color:var(--nova-primary)}
 .keyboardOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
-.stage:focus-visible{outline:2px solid var(--nova-primary);outline-offset:-3px}
+/* The stage receives focus for shortcuts and when menus close. Keep focus
+   feedback on selected items and controls instead of outlining the canvas. */
+.stage,.stage:focus,.stage:focus-visible{outline:none}
 .stage:focus-visible .selectedNode .transformControls:before{border-width:2px}
 .node:focus-within .branch{opacity:1;pointer-events:auto}
 .branch:focus-visible b{opacity:1;transform:scale(1)}
@@ -1137,3 +1131,4 @@
   .edgeHit{stroke-width:28;vector-effect:non-scaling-stroke;}
   .resizeHandle::after,.rotateHandle::after{inset:calc(-18px / var(--canvas-scale,1));}
 }
+.node[data-block-drop]{outline:3px solid var(--nova-primary);outline-offset:5px;}

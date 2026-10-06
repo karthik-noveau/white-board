@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Icon from "./BoardIcon";
 import { versionPreviewData } from "../lib/versionPreview";
+import { BlockWorkspaceContext } from "../lib/blockWorkspace";
 import { beginPinch, updatePinch } from "../lib/touchViewport";
 import { playTransition } from "../lib/motion";
 import canvasStyles from "../styles/canvas.module.css";
@@ -97,7 +98,7 @@ export default function VersionPreview({ version, renderNode, onClose, onRestore
           <path className={canvasStyles.edgeLine} d={edge.path}/>
           {edge.label && <g className={canvasStyles.edgeLabel} transform={`translate(${edge.labelPoint.x},${edge.labelPoint.y})`}><rect x={-Math.min(90, Math.max(20, edge.label.length * 2.85 + 8))} y="-11" width={Math.min(180, Math.max(40, edge.label.length * 5.7 + 16))} height="22" rx="7"/><text textAnchor="middle" dominantBaseline="central">{edge.label.length > 28 ? `${edge.label.slice(0, 27)}…` : edge.label}</text></g>}
         </g>)}</svg>
-        {graph.nodes.map(renderNode)}
+        <BlockWorkspaceContext.Provider value={{nodes:version.board.nodes}}>{graph.nodes.map(renderNode)}</BlockWorkspaceContext.Provider>
       </div> : <div className={styles.empty}><Icon name="frame" size={30}/><b>{graph.totalCount ? "All items are hidden" : "This version is empty"}</b><p>No visible shapes in this saved version.</p></div>}
       <div className={canvasStyles.keyboardOnly}>{graph.nodes.map(node => <p key={node.id}>{node.title}. {node.note}</p>)}</div>
     </div>

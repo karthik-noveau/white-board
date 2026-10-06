@@ -1,0 +1,16 @@
+.tools{position:fixed;z-index:2200;display:flex;align-items:center;gap:4px;box-sizing:border-box;width:max-content;max-width:calc(100vw - 16px);padding:4px;border:1px solid #e7e8ee;border-radius:10px;background:var(--nova-surface);box-shadow:0 8px 24px #20233112,0 1px 4px #2023310a;color:#505665;user-select:none;animation:textToolsIn 150ms cubic-bezier(.2,.8,.2,1);}
+.toolGroup{display:flex;align-items:center;gap:1px;}
+.toolSeparator{flex:none;width:1px;height:16px;margin:0 2px;background:#e5e7ed;}
+.tools button{box-sizing:border-box;display:grid;place-items:center;flex:none;width:28px;height:28px;padding:0;border:0;border-radius:5px;background:transparent;color:inherit;cursor:pointer;transition:background 120ms ease,color 120ms ease;}
+.tools button svg{display:block;flex:none;}
+.typeGlyph{display:block;width:16px;height:18px;font:500 14px/18px var(--nova-font-family);text-align:center;text-decoration-thickness:1px;text-underline-offset:3px;}
+.bold{font-weight:700;}.italic{font-family:Georgia,serif;font-style:italic;font-weight:600;}.underline{text-decoration-line:underline;}.strikeThrough{text-decoration-line:line-through;}
+.tools button[aria-pressed=true]{background:var(--nova-primary-soft);color:var(--nova-primary);}
+.tools button.clearTool{color:var(--nova-muted);}
+.tools button:focus-visible{outline:2px solid var(--nova-primary);outline-offset:1px;}
+@media(hover:hover){.tools button:hover{background:#f1f2f5;color:var(--nova-ink);}.tools button[aria-pressed=true]:hover{background:var(--nova-primary-soft);color:var(--nova-primary);}}
+@media(max-width:760px),(pointer:coarse){.tools{display:grid;grid-template-columns:repeat(var(--format-columns,8),44px);gap:0;padding:5px;}.toolGroup{display:contents;}.toolSeparator{display:none;}.tools button{width:44px;height:44px;}}
+@media(max-width:379px){.tools{grid-template-columns:repeat(var(--format-columns,4),44px);row-gap:2px;}}
+@media(max-width:760px),(pointer:coarse){.withBlockStyles{--format-columns:5;}}
+@keyframes textToolsIn{from{opacity:0;transform:translateY(4px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.tools{animation:none;}.tools button{transition:none;}}

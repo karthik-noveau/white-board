@@ -1,4 +1,5 @@
 import { nodeSize } from './boardAppearance.js';
+import { normalizeMarkup } from './imageMarkup.js';
 
 export const TYPES = {
   text: { name: 'Text', icon: 'type', description: 'Just start writing.', aliases: 'paragraph plain' },
@@ -105,9 +106,11 @@ export function editTable(board, id, action, index) {
   } else if (action === 'delete-row' && index >= 0 && index < table.rows.length) {
     table.rows.splice(index, 1);
   } else if (action === 'insert-column' && index >= 0 && index <= table.headers.length && table.headers.length < 30) {
+    if (table.columnWidths) table.columnWidths.splice(index, 0, 190);
     table.headers.splice(index, 0, 'Column');
     table.rows.forEach(row => row.splice(index, 0, newSlot()));
   } else if (action === 'delete-column' && index >= 0 && index < table.headers.length && table.headers.length > 1) {
+    if (table.columnWidths) table.columnWidths.splice(index, 1);
     table.headers.splice(index, 1);
     table.rows.forEach(row => row.splice(index, 1));
   } else return false;
@@ -139,7 +142,7 @@ export function replaceContentText(content, pattern, replacement) {
       block[key] = result;
     }
     if (block.type === 'table') block.headers = block.headers.map(replace);
-    if (block.type === 'checklist') block.tasks = block.tasks.map(task => ({ ...task, text: replace(task.text) }));
+    if (block.type === 'checklist') block.tasks = block.tasks.map(task => { const text = replace(task.text); return text === task.text ? task : { ...task, text, html: undefined }; });
   });
   return changed ? next : content;
 }
@@ -171,6 +174,7 @@ export function placeAttachment(board, id, type, data, insert = false) {
       ensureEditor(board.cells[0].content);
     }
   }
+  if (type === 'image' && block.data !== data.data) Object.assign(block, { annotations: [], naturalWidth: 0, naturalHeight: 0 });
   Object.assign(block, data);
   return block;
 }
@@ -203,9 +207,14 @@ export function normalizeCellContent(content) {
       const b = { id: id(item.id), type: item.type };
       for (const key of ['text', 'html', 'code', 'caption', 'filename', 'description', 'url', 'language', 'mime']) if (item[key] != null) b[key] = String(item[key]);
       if (['text', 'heading', 'note'].includes(b.type)) b.text ??= '';
+      if (b.type === 'heading' && Number.isInteger(item.level)) b.level = clamp(item.level, 1, 6);
       if (b.type === 'table') {
         if (depth >= 3 || !Array.isArray(item.headers) || !item.headers.length || item.headers.length > 30 || !Array.isArray(item.rows) || item.rows.length > 1000) throw new Error('Invalid table');
         b.headers = item.headers.map(String);
+        if (item.columnWidths != null) {
+          if (!Array.isArray(item.columnWidths) || item.columnWidths.length !== b.headers.length || item.columnWidths.some(width => !Number.isFinite(width))) throw new Error('Invalid column widths');
+          b.columnWidths = item.columnWidths.map(width => clamp(Math.round(width), 100, 1200));
+        }
         b.rows = item.rows.map(row => {
           if (!Array.isArray(row) || row.length !== b.headers.length) throw new Error('Invalid table row');
           return row.map(slot => ({ id: id(slot.id), content: normalize(slot.content, depth + 1) }));
@@ -213,7 +222,7 @@ export function normalizeCellContent(content) {
       }
       if (b.type === 'checklist') {
         if (!Array.isArray(item.tasks) || item.tasks.length > 1000) throw new Error('Invalid checklist');
-        b.tasks = item.tasks.map(task => ({ text: String(task?.text ?? ''), done: !!task?.done }));
+        b.tasks = item.tasks.map(task => ({ text: String(task?.text ?? ''), done: !!task?.done, ...(typeof task?.html === 'string' ? { html: task.html } : {}) }));
       }
       if (b.type === 'note') b.tone = ['warm','mint','violet'].includes(item.tone) ? item.tone : 'warm';
       if (['image', 'file'].includes(b.type)) {
@@ -221,6 +230,7 @@ export function normalizeCellContent(content) {
         b.size = Math.max(0, Number(item.size) || 0);
         b.naturalWidth = Math.max(0, Number(item.naturalWidth) || 0);
         b.naturalHeight = Math.max(0, Number(item.naturalHeight) || 0);
+        if (b.type === 'image' && item.annotations != null) b.annotations = normalizeMarkup(item.annotations);
       }
       return b;
     });

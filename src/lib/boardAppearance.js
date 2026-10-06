@@ -17,6 +17,6 @@ export const nodeSize = node => {
   if (isCardContent(node)) return { width, height: Math.max(height, node.contentHeight || 0) };
   return {
     width: node.content ? Math.max(320, node.w || 380) : width,
-    height: node.content ? Math.max(100, node.h || 0, node.contentHeight || 120) : height,
+    height: node.content ? Math.max(100, node.h || 0, node.contentHeight || 120) : Math.max(height, node.contentHeight || 0),
   };
 };

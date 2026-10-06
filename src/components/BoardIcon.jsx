@@ -1,8 +1,16 @@
 import ConnectorIcon from "./ConnectorIcon";
+import { Code, Link2, Eraser, ListOrdered, List, Quote, SquareCode } from 'lucide-react';
+
+const textIcons = {
+  textCode: Code, textLink: Link2, textClear: Eraser,
+  textNumberedList: ListOrdered, textBulletedList: List, textQuote: Quote, textCodeBlock: SquareCode,
+};
 
 /** Shared board icons: each symbol keeps the same meaning across toolbars. */
 export default function BoardIcon({ name, size = 18 }) {
   if (["link", "connect", "connectorPath"].includes(name)) return <ConnectorIcon size={size}/>;
+  const TextIcon = textIcons[name];
+  if (TextIcon) return <TextIcon size={size} strokeWidth={1.5} absoluteStrokeWidth aria-hidden="true" focusable="false"/>;
 
   const icons = {
     image: <><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/></>,
@@ -32,6 +40,9 @@ export default function BoardIcon({ name, size = 18 }) {
     more: <><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></>,
     trash: <g strokeWidth="1.7"><path d="M3.5 7h17M8.5 7V5A1.5 1.5 0 0 1 10 3.5h4A1.5 1.5 0 0 1 15.5 5v2"/><path d="M5.75 10v8.25a3 3 0 0 0 3 3h6.5a3 3 0 0 0 3-3V10"/><path d="M9.5 11.5v5.75M14.5 11.5v5.75" strokeWidth="1.4"/></g>,
     duplicate: <><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></>,
+    cut: <><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m8.5 7.5 12 13M8.5 16.5 20.5 3"/></>,
+    paste: <><path d="M9 5H6a2 2 0 0 0-2 2v13h16V7a2 2 0 0 0-2-2h-3"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M8 12h8M8 16h6"/></>,
+    group: <><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/><rect x="7" y="7" width="10" height="10" rx="2"/></>,
     grid: <><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></>,
     lock: <><rect x="6" y="10" width="12" height="10" rx="2.5"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/></>,
     unlock: <><rect x="6" y="10" width="12" height="10" rx="2.5"/><path d="M9 10V7a3 3 0 0 1 5.5-1.7"/><circle cx="12" cy="15" r="1" fill="currentColor" stroke="none"/></>,
@@ -62,6 +73,7 @@ export default function BoardIcon({ name, size = 18 }) {
     bulletList: <><path d="M9 5h12M9 12h12M9 19h12"/><circle cx="4" cy="5" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="19" r="1" fill="currentColor"/></>,
     quote: <><path d="M4 6h6v6H4zm0 6v2a4 4 0 0 0 4 4M14 6h6v6h-6zm0 6v2a4 4 0 0 0 4 4"/></>,
     code: <path d="m7 7-5 5 5 5m10-10 5 5-5 5M14 4l-4 16"/>,
+    textHighlight: <g strokeWidth="2" strokeLinejoin="round"><path d="m13.9 3.8-7.1 7.1a1.5 1.5 0 0 0 0 2.1l4.2 4.2a1.5 1.5 0 0 0 2.1 0l7.1-7.1a1.5 1.5 0 0 0 0-2.1L16 3.8a1.5 1.5 0 0 0-2.1 0Z"/><path d="m7.5 13.7-3 3V20h3.3l3-3M12 6l6 6"/></g>,
     clearFormat: <><path d="M3 4h14M10 4 7 17M4 17h6m3-3 5-5 4 4-5 5h-4l-2-2Zm2-2 4 4M14 21h8"/></>,
   };
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">{icons[name]}</svg>;

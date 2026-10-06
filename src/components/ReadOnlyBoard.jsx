@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { Node } from "./Canvas";
 import CommentsPanel from "./CommentsPanel";
 import Icon from "./BoardIcon";
+import { BlockWorkspaceContext } from "../lib/blockWorkspace";
 import { versionPreviewData } from "../lib/versionPreview";
 import { nodeSize } from "../lib/boardAppearance";
 import { beginPinch, updatePinch } from "../lib/touchViewport";
@@ -12,22 +13,30 @@ import styles from "../styles/readOnlyBoard.module.css";
 // This viewer never mounts the editor or writes to the local workspace.
 // Collapsing branches, selection, and the camera are temporary viewing state.
 export default function ReadOnlyBoard({ project }) {
-  const viewportRef = useRef(null), pointers = useRef(new Map()), gesture = useRef(null);
+  const viewportRef = useRef(null), pointers = useRef(new Map()), gesture = useRef(null), pendingFocus = useRef(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const transformRef = useRef(transform); transformRef.current = transform;
   const [collapsed, setCollapsed] = useState(() => new Map());
+  const [revealed, setRevealed] = useState(() => new Set());
   const [selectedId, setSelectedId] = useState(null), [commentsOpen, setCommentsOpen] = useState(false);
   const [commentTarget, setCommentTarget] = useState(null);
   const graph = useMemo(() => versionPreviewData({ ...project.board, nodes: project.board.nodes.map(node =>
-    collapsed.has(node.id) ? { ...node, collapsed: collapsed.get(node.id) } : node,
-  ) }), [project.board, collapsed]);
+    ({ ...node, ...(collapsed.has(node.id) ? {collapsed:collapsed.get(node.id)} : {}), ...(revealed.has(node.id) ? {hidden:false} : {}) }),
+  ) }), [project.board, collapsed, revealed]);
 
   const fit = useCallback(() => {
     const rect = viewportRef.current?.getBoundingClientRect(), bounds = graph.bounds;
     if (!rect || !bounds) return;
+    const target = pendingFocus.current !== null && graph.nodes.find(node => node.id === pendingFocus.current);
+    if (target) {
+      pendingFocus.current = null;
+      const size = nodeSize(target);
+      setTransform(value => ({...value,x:rect.width/2-(target.x+size.width/2)*value.scale,y:rect.height/2-(target.y+size.height/2)*value.scale}));
+      return;
+    }
     const scale = Math.max(.01, Math.min((rect.width - 64) / bounds.width, (rect.height - 80) / bounds.height, 1.15));
     setTransform({ scale, x: (rect.width - bounds.width * scale) / 2 - bounds.x * scale, y: (rect.height - bounds.height * scale) / 2 - bounds.y * scale });
-  }, [graph.bounds]);
+  }, [graph.bounds, graph.nodes]);
   useEffect(() => {
     fit();
     const observer = new ResizeObserver(fit); observer.observe(viewportRef.current);
@@ -101,8 +110,24 @@ export default function ReadOnlyBoard({ project }) {
     const width = commentsOpen && rect.width > 760 ? rect.width - 384 : rect.width;
     setTransform(value => ({ ...value, x: width / 2 - (node.x + size.width / 2) * value.scale, y: rect.height / 2 - (node.y + size.height / 2) * value.scale }));
   };
+  const navigateReference = id => {
+    const node = project.board.nodes.find(item => String(item.id) === String(id));
+    if (!node) return;
+    if (graph.nodes.some(item => item.id === node.id)) { focusNode(node); return; }
+    const ancestors = new Set([node.id]), queue = [node.id];
+    while (queue.length) {
+      const target = queue.shift();
+      for (const edge of project.board.edges.filter(edge => edge.to === target)) {
+        if (!ancestors.has(edge.from)) { ancestors.add(edge.from); queue.push(edge.from); }
+      }
+    }
+    pendingFocus.current = node.id;
+    setSelectedId(node.id);
+    setCollapsed(current => { const next = new Map(current); for (const id of ancestors) next.set(id,false); return next; });
+    setRevealed(current => new Set([...current,node.id,node.frameId]));
+  };
 
-  return <div className={`${canvasStyles.app} ${styles.app}`} data-readonly-board onKeyDown={event => {
+  return <BlockWorkspaceContext.Provider value={{nodes:project.board.nodes,boardId:project.id,onNavigate:navigateReference}}><div className={`${canvasStyles.app} ${styles.app}`} data-readonly-board onKeyDown={event => {
     if (event.key === "Escape" && commentsOpen) { event.preventDefault(); setCommentsOpen(false); viewportRef.current?.focus({ preventScroll: true }); }
   }}>
     <header className={styles.header}>
@@ -133,5 +158,5 @@ export default function ReadOnlyBoard({ project }) {
       <button disabled={!graph.nodes.length} onClick={fit} aria-label="Fit board"><Icon name="fit" size={16}/>Fit</button>
     </div></footer>
     {commentsOpen && <CommentsPanel readOnly nodes={graph.nodes} edges={project.board.edges} targetId={selectedId} focusTarget={commentTarget} onChoose={focusNode} onClose={() => setCommentsOpen(false)}/>}
-  </div>;
+  </div></BlockWorkspaceContext.Provider>;
 }

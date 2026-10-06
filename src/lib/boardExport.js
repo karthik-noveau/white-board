@@ -91,13 +91,21 @@ function measuredText(source) {
     copies[index].style.cssText = [...computed].map(property => `${property}:${computed.getPropertyValue(property)}`).join(";");
     copies[index].style.backgroundImage = "none";
     for (const attribute of [...copies[index].attributes]) {
-      if (/^on/i.test(attribute.name) || ["id", "srcset", "href", "xlink:href"].includes(attribute.name) || attribute.name === 'src' && !safeAttachment(attribute.value, true)) copies[index].removeAttribute(attribute.name);
+      if (/^on/i.test(attribute.name) || ["srcset", "href", "xlink:href"].includes(attribute.name) || attribute.name === 'id' && !element.closest('[data-image-markup]') || attribute.name === 'src' && !safeAttachment(attribute.value, true)) copies[index].removeAttribute(attribute.name);
     }
   });
   Object.assign(clone.style, { position: "fixed", left: "-100000px", top: "0px", transform: "none", transition: "none", visibility: "hidden", outline: "none", boxShadow: "none", pointerEvents: "none" });
   clone.removeAttribute("data-export-node");
   clone.setAttribute("aria-hidden", "true");
   clone.inert = true;
+  for (const markup of clone.querySelectorAll('[data-image-markup]')) {
+    for (const marker of markup.querySelectorAll('marker[id]')) {
+      const oldId = marker.id; marker.id = `${oldId}-export`;
+      for (const path of markup.querySelectorAll('[marker-end]')) {
+        if (path.getAttribute('marker-end') === `url(#${oldId})`) path.setAttribute('marker-end', `url(#${marker.id})`);
+      }
+    }
+  }
   clone.querySelectorAll("button,[contenteditable],input,textarea,script,style,link,iframe,object,embed,img:not([data-cell-image]),audio,video").forEach(element => element.remove());
   document.body.appendChild(clone);
   try {
@@ -117,12 +125,23 @@ function measuredText(source) {
       const data = safeAttachment(picture.getAttribute('src'), true), rect = picture.getBoundingClientRect();
       if (data) output.push(`<image href="${xml(data)}" x="${number(rect.left-origin.left)}" y="${number(rect.top-origin.top)}" width="${number(rect.width)}" height="${number(rect.height)}" preserveAspectRatio="xMidYMid meet"/>`);
     }
+    for (const markup of clone.querySelectorAll('[data-image-markup]')) {
+      const rect = markup.getBoundingClientRect(), svg = markup.cloneNode(true);
+      for (const element of [svg, ...svg.querySelectorAll('*')]) element.removeAttribute('style');
+      svg.setAttribute('x', number(rect.left-origin.left)); svg.setAttribute('y', number(rect.top-origin.top));
+      svg.setAttribute('width', number(rect.width)); svg.setAttribute('height', number(rect.height));
+      output.push(new XMLSerializer().serializeToString(svg));
+    }
     for (const checkbox of clone.querySelectorAll('[data-cell-check]')) {
       const rect = checkbox.getBoundingClientRect(), style = getComputedStyle(checkbox);
       const checked = checkbox.dataset.checked === 'true', x = rect.left - origin.left, y = rect.top - origin.top;
       output.push(`<g transform="translate(${number(x)} ${number(y)}) scale(${number(rect.width / 18)} ${number(rect.height / 18)})"><rect x=".75" y=".75" width="16.5" height="16.5" rx="4" fill="${checked ? xml(style.color) : 'none'}" stroke="${xml(style.color)}" stroke-width="1.5"/>${checked ? '<path d="m4.75 9 2.75 2.75 5.75-5.5" fill="none" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>' : ''}</g>`);
     }
     for (const field of clone.querySelectorAll(":scope > h3, :scope > p, [data-cell-text]")) {
+      for (const mark of field.querySelectorAll('mark,code,a[data-card-reference]')) {
+        const style = getComputedStyle(mark);
+        for (const rect of mark.getClientRects()) output.push(`<rect x="${number(rect.left-origin.left)}" y="${number(rect.top-origin.top)}" width="${number(rect.width)}" height="${number(rect.height)}" rx="${parseFloat(style.borderRadius)||0}" ${colorAttributes(style.backgroundColor)}/>`);
+      }
       const walker = document.createTreeWalker(field, NodeFilter.SHOW_TEXT);
       while (walker.nextNode()) {
         const textNode = walker.currentNode, style = getComputedStyle(textNode.parentElement);

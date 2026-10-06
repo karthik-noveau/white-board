@@ -1,5 +1,5 @@
 .menu { position:fixed;z-index:2100;width:264px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow-y:auto;padding:7px;border:1px solid var(--nova-border);border-radius:12px;background:var(--nova-surface);color:var(--nova-text);box-shadow:var(--nova-popover-shadow);font:400 14px/20px var(--nova-font-family);overscroll-behavior:contain; }
-.title { padding:7px 10px 9px;color:var(--nova-muted);font-size:12px;font-weight:550;line-height:18px; }
+.title { display:flex;align-items:center;gap:8px;padding:5px 10px 7px;color:var(--nova-muted);font-size:12px;font-weight:550;line-height:18px; }
 .group + .group { margin-top:5px;padding-top:5px;border-top:1px solid var(--nova-border); }
 .menu button { display:flex;align-items:center;gap:10px;width:100%;min-height:36px;padding:8px 10px;border:0;border-radius:7px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer; }
 .menu button svg { flex:none; }
@@ -9,7 +9,7 @@
 .menu button.danger { color:var(--nova-danger); }
 .menu button.danger:hover,.menu button.danger:focus-visible { background:var(--nova-danger-soft); }
 .menu button:disabled { opacity:.4;cursor:default;background:transparent;color:var(--nova-muted); }
-@media(pointer:coarse) { .menu button { min-height:44px; } }
-.title{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-block:2px;}
-.menu .close{flex:none;justify-content:center;width:36px;min-height:36px;padding:0;}
-@media(max-width:760px),(pointer:coarse){.menu button{min-height:44px;}.menu .close{width:44px;min-height:44px;}}
+.title>span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.menu .close,.menu .back{flex:none;justify-content:center;width:24px;min-height:24px;padding:0;}
+@media(hover:hover) and (pointer:fine){.menu .close{display:none;}}
+@media(max-width:760px),(pointer:coarse){.menu button{min-height:44px;}.title{padding-block:2px;}.menu .close,.menu .back{display:flex;width:44px;min-height:44px;}}

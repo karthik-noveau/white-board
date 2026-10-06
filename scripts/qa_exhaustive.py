@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Micro-level product regression suite for Nova.
+"""Micro-level product regression suite for DrawAnything.
 
 This complements the smoke, feature, and mechanics suites. It checks edge cases,
 download payloads, IndexedDB persistence, and pointer-driven interactions.
@@ -15,12 +15,12 @@ from datetime import date, timedelta
 from qa_browser import Browser
 
 
-DOWNLOAD_DIR = "/tmp/nova-exhaustive-downloads"
+DOWNLOAD_DIR = "/tmp/drawanything-exhaustive-downloads"
 
 
 class Exhaustive:
     def __init__(self):
-        self.b = Browser(int(os.environ.get("NOVA_QA_PORT", "9225")))
+        self.b = Browser(int(os.environ.get("DRAWANYTHING_QA_PORT", os.environ.get("NOVA_QA_PORT", "9225"))))
         self.results = []
 
     def test(self, name, fn):
@@ -130,7 +130,7 @@ class Exhaustive:
         def export_project():
             started = time.time()
             self.click('button[aria-label="Export project"]')
-            path = self.latest_download(".nova", started)
+            path = self.latest_download(".drawanything", started)
             payload = json.load(open(path, encoding="utf-8"))
             self.assert_(payload.get("format") == "nova-project" and payload.get("version") == 1, "Invalid project envelope")
             self.assert_(payload.get("project", {}).get("id"), "Export omitted project id")
@@ -140,7 +140,7 @@ class Exhaustive:
         def backup_workspace():
             started = time.time()
             self.click_text("body", "Backup all", exact=False)
-            path = self.latest_download(".nova-workspace", started)
+            path = self.latest_download(".drawanything-workspace", started)
             payload = json.load(open(path, encoding="utf-8"))
             self.assert_(payload.get("format") == "nova-workspace", "Invalid workspace envelope")
             self.assert_(len(payload.get("projects", [])) >= 3, "Backup omitted projects")

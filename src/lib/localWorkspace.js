@@ -1,4 +1,7 @@
-import { normalizeCellContent } from './cellContent';
+import { brand, backupFiles } from "./brand.js";
+import { prepareWorkspaceImport } from './workspaceImport.js';
+import { normalizeCellContent } from './cellContent.js';
+import { projectBatchChanges, projectCollection } from './projectBatch.js';
 
 const DB_NAME = "nova-workspace";
 const DB_VERSION = 1;
@@ -42,7 +45,7 @@ function openWorkspace() {
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
-      request.onblocked = () => reject(new Error("Nova storage is open in an older tab. Close it and reload."));
+      request.onblocked = () => reject(new Error(`${brand.name} storage is open in an older tab. Close it and reload.`));
     });
   }
   return databasePromise;
@@ -92,10 +95,26 @@ async function migrateLegacyProjects() {
 
 export async function initializeWorkspace(starterProjects = []) {
   if (!window.indexedDB) throw new Error("This browser does not support durable local storage.");
+  const previouslyOpened = (await readMeta("legacyMigrated"))?.value;
   await migrateLegacyProjects();
-  const projects = await listProjects({ includeDeleted: true });
-  if (!projects.length && starterProjects.length) {
-    await Promise.all(starterProjects.map(project => putProject(project, { snapshot: false })));
+  const database = await openWorkspace();
+  const transaction = database.transaction([PROJECTS, META], "readwrite");
+  const completed = transactionDone(transaction);
+  try {
+    const meta = transaction.objectStore(META), store = transaction.objectStore(PROJECTS);
+    const [seeded, existing] = await Promise.all([requestResult(meta.get("workspaceInitialized")), requestResult(store.getAll())]);
+    // Establish a revision before legacy boards reach any editor, including
+    // boards that might be deleted from a second tab before their first save.
+    existing.filter(project => !project.storageRevision).forEach(project => store.put({ ...project, storageRevision: 1 }));
+    if (!seeded?.value) {
+      if (!existing.length && !previouslyOpened) starterProjects.forEach(project => store.put({ ...normalizeProject(project), storageRevision: 1 }));
+      meta.put({ key: "workspaceInitialized", value: true });
+    }
+    await completed;
+  } catch (error) {
+    try { transaction.abort(); } catch { /* Already aborted. */ }
+    await completed.catch(() => {});
+    throw error;
   }
   if (navigator.storage?.persist) {
     try { await navigator.storage.persist(); } catch { /* Persistence is best-effort. */ }
@@ -125,22 +144,53 @@ export async function putProject(project, { snapshot = true } = {}) {
   const database = await openWorkspace();
   const normalized = normalizeProject(project);
   const transaction = database.transaction([PROJECTS, VERSIONS], "readwrite");
-  transaction.objectStore(PROJECTS).put(normalized);
-  if (snapshot && normalized.board) {
-    const versionIndex = transaction.objectStore(VERSIONS).index("projectTime");
-    const range = IDBKeyRange.bound([normalized.id, 0], [normalized.id, Number.MAX_SAFE_INTEGER]);
-    const cursorRequest = versionIndex.openCursor(range, "prev");
-    const latest = await new Promise((resolve, reject) => {
-      cursorRequest.onsuccess = () => resolve(cursorRequest.result?.value);
-      cursorRequest.onerror = () => reject(cursorRequest.error);
-    });
-    if (!latest || normalized.updated - latest.createdAt >= VERSION_INTERVAL) {
-      transaction.objectStore(VERSIONS).add({ projectId: normalized.id, createdAt: normalized.updated, board: normalized.board });
+  const completed = transactionDone(transaction);
+  try {
+    const store = transaction.objectStore(PROJECTS);
+    const current = await requestResult(store.get(project.id));
+    const expected = project.storageRevision || 0;
+    if ((current?.storageRevision || 0) !== expected || (!current && expected !== 0)) {
+      const error = new Error("This board changed in another tab. Your edits are still here. Save a new board to keep both versions.");
+      error.code = "PROJECT_CONFLICT";
+      throw error;
     }
+    normalized.storageRevision = expected + 1;
+    store.put(normalized);
+    if (snapshot && normalized.board) {
+      const versionIndex = transaction.objectStore(VERSIONS).index("projectTime");
+      const range = IDBKeyRange.bound([normalized.id, 0], [normalized.id, Number.MAX_SAFE_INTEGER]);
+      const cursor = await requestResult(versionIndex.openCursor(range, "prev"));
+      if (!cursor || normalized.updated - cursor.value.createdAt >= VERSION_INTERVAL) {
+        transaction.objectStore(VERSIONS).add({ projectId: normalized.id, createdAt: normalized.updated, board: normalized.board });
+      }
+    }
+    await completed;
+  } catch (error) {
+    try { transaction.abort(); } catch { /* Already aborted. */ }
+    await completed.catch(() => {});
+    throw error;
   }
-  await transactionDone(transaction);
   if (snapshot) trimVersions(database, normalized.id).catch(() => {});
   return normalized;
+}
+
+// One transaction commits the complete selection or leaves all projects unchanged.
+export async function applyProjectBatch(ids, action, value = '') {
+  const database = await openWorkspace();
+  const transaction = database.transaction(PROJECTS, 'readwrite');
+  const store = transaction.objectStore(PROJECTS);
+  const completed = transactionDone(transaction);
+  try {
+    const projects = await requestResult(store.getAll());
+    const changed = projectBatchChanges(projects, ids, action, value).map(project => ({ ...project, storageRevision: (project.storageRevision || 0) + 1 }));
+    changed.forEach(project => store.put(project));
+    await completed;
+    return changed;
+  } catch (error) {
+    try { transaction.abort(); } catch { /* Already completed or aborted. */ }
+    await completed.catch(() => {});
+    throw error;
+  }
 }
 
 export async function moveProjectToTrash(id) {
@@ -148,8 +198,9 @@ export async function moveProjectToTrash(id) {
   const transaction = database.transaction(PROJECTS, "readwrite");
   const store = transaction.objectStore(PROJECTS);
   const project = await requestResult(store.get(id));
-  if (project) store.put({ ...project, deletedAt: Date.now(), updated: Date.now() });
+  if (project) { Object.assign(project, { deletedAt: Date.now(), updated: Date.now(), storageRevision: (project.storageRevision || 0) + 1 }); store.put(project); }
   await transactionDone(transaction);
+  return project;
 }
 
 export async function restoreProject(id) {
@@ -159,9 +210,11 @@ export async function restoreProject(id) {
   const project = await requestResult(store.get(id));
   if (project) {
     delete project.deletedAt;
-    store.put({ ...project, updated: Date.now() });
+    Object.assign(project, { updated: Date.now(), storageRevision: (project.storageRevision || 0) + 1 });
+    store.put(project);
   }
   await transactionDone(transaction);
+  return project;
 }
 
 export async function permanentlyDeleteProject(id) {
@@ -224,7 +277,7 @@ function downloadJson(payload, filename, type = "application/x-nova+json") {
 
 export function exportProjectFile(project) {
   const payload = { format: "nova-project", version: 1, exportedAt: new Date().toISOString(), project: normalizeProject(project) };
-  downloadJson(payload, `${project.title.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-|-$/g, "") || "untitled"}.nova`);
+  downloadJson(payload, `${project.title.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-|-$/g, "") || "untitled"}${backupFiles.projectExtension}`);
 }
 
 export async function exportWorkspaceFile(projects) {
@@ -233,26 +286,36 @@ export async function exportWorkspaceFile(projects) {
   const versions = await requestResult(transaction.objectStore(VERSIONS).getAll());
   const shapeLibrary = (await readMeta("shapeLibrary"))?.value || [];
   const payload = { format: "nova-workspace", version: 1, exportedAt: new Date().toISOString(), projects: projects.map(normalizeProject), versions, shapeLibrary };
-  downloadJson(payload, `nova-workspace-${new Date().toISOString().slice(0, 10)}.nova-workspace`, "application/x-nova-workspace+json");
+  downloadJson(payload, `${brand.slug}-workspace-${new Date().toISOString().slice(0, 10)}${backupFiles.workspaceExtension}`, "application/x-nova-workspace+json");
+}
+
+export async function exportProjectSelection(projects) {
+  const database = await openWorkspace();
+  const transaction = database.transaction(VERSIONS, 'readonly');
+  const versions = await requestResult(transaction.objectStore(VERSIONS).getAll());
+  downloadJson(projectCollection(projects.map(normalizeProject), versions), `${brand.slug}-selection-${new Date().toISOString().slice(0, 10)}${backupFiles.workspaceExtension}`, 'application/x-nova-workspace+json');
 }
 
 export async function importNovaFile(file) {
-  const payload = JSON.parse(await file.text());
-  if (payload?.format === "nova-project" && payload.project?.id) {
-    const project = normalizeProject({ ...payload.project, id: `project-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, title: payload.project.title || "Imported project", updated: Date.now(), deletedAt: undefined });
-    await putProject(project, { snapshot: true });
-    return [project];
-  }
-  if (payload?.format === "nova-workspace" && Array.isArray(payload.projects)) {
-    const now = Date.now();
-    const projects = payload.projects.map((project, index) => normalizeProject({ ...project, id: `project-${now}-${index}-${Math.random().toString(36).slice(2, 6)}`, updated: now + index, deletedAt: undefined }));
-    await Promise.all(projects.map(project => putProject(project, { snapshot: Boolean(project.board) })));
-    if (Array.isArray(payload.shapeLibrary) && payload.shapeLibrary.length) {
-      const existing = await listShapeLibrary();
-      const ids = new Set(payload.shapeLibrary.map(item => item.id));
-      await writeMeta("shapeLibrary", [...payload.shapeLibrary, ...existing.filter(item => !ids.has(item.id))].slice(0, 60));
+  const prepared = prepareWorkspaceImport(JSON.parse(await file.text()));
+  const database = await openWorkspace();
+  const transaction = database.transaction([PROJECTS, VERSIONS, META], "readwrite");
+  const completed = transactionDone(transaction);
+  try {
+    const meta = transaction.objectStore(META);
+    const existing = (await requestResult(meta.get("shapeLibrary")))?.value || [];
+    prepared.projects.forEach(project => transaction.objectStore(PROJECTS).add(normalizeProject(project)));
+    prepared.versions.forEach(version => transaction.objectStore(VERSIONS).add(version));
+    if (prepared.shapeLibrary.length) {
+      const ids = new Set(prepared.shapeLibrary.map(item => item.id));
+      meta.put({ key: "shapeLibrary", value: [...prepared.shapeLibrary, ...existing.filter(item => !ids.has(item.id))] });
     }
-    return projects;
+    meta.put({ key: "workspaceInitialized", value: true });
+    await completed;
+  } catch (error) {
+    try { transaction.abort(); } catch { /* Already aborted. */ }
+    await completed.catch(() => {});
+    throw error;
   }
-  throw new Error("This is not a valid Nova project or workspace backup.");
+  return prepared.projects;
 }

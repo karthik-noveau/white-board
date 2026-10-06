@@ -1,4 +1,6 @@
 import { contentText } from '../lib/cellContent.js';
+import { arrangeTemplateCards, templateDesigns } from './templateDesigns.js';
+import { previewBlocks, wrapPreviewText } from '../lib/previewLayout.js';
 
 const text = value => ({ type: 'text', text: value });
 const tasks = (...items) => ({ type: 'checklist', tasks: items.map(value => ({ text: value, done: false })) });
@@ -10,34 +12,34 @@ const card = (title, ...content) => ({ title, content });
 // not invented progress, people, dates or results.
 const workspaces = {
   'weekly-plan': [
-    card('Three priorities', text('Choose outcomes that fit the time you actually have.'), table(['Outcome', 'Next step'], [['Must finish', 'Name the deliverable'], ['Make progress', 'Choose a small milestone'], ['Make space', 'Defer or delegate one task']])),
-    card('Time & commitments', table(['Day', 'Focus block', 'Commitment'], [['Monday', 'Reserve time', 'Check calendar'], ['Wednesday', 'Reserve time', 'Check capacity'], ['Friday', 'Weekly review', 'Close open loops']]), note('Leave some capacity for unplanned work.')),
-    card('Ready to start', tasks('Choose the first concrete action', 'Gather the information you need', 'Protect a focus block on the calendar', 'Tell others what you are deferring')),
-    card('Friday reset', text('Wins: What moved forward?\nLesson: What would you do differently?'), tasks('Review unfinished work', 'Move only what still matters into next week', 'Choose one improvement for the next plan')),
+    card('Make room for what matters', note('Choose three outcomes. Leave room for the unexpected.'), tasks('One thing to finish', 'One thing to move forward', 'One thing to let go')),
+    card('Protect your focus', table(['When', 'One useful outcome'], [['First focus block', 'Your most important next step'], ['Second focus block', 'Finish before starting more']]), text('What could interrupt you? Decide how to handle it.')),
+    card('Keep the promises', tasks('Check meetings and deadlines', 'Ask for the input you need', 'Tell someone what you are deferring')),
+    card('The Friday reset', table(['Keep', 'Change'], [['A habit that helped', 'A friction to remove']]), text('What moved forward? What can wait?')),
   ],
   'project-plan': [
-    card('Outcome & scope', text('We will deliver: [specific outcome]\nFor: [person or team]\nDone means: [observable result]'), table(['In scope', 'Out of scope'], [['Essential deliverable', 'Later enhancement'], ['Required audience', 'Audience for a later phase']])),
-    card('Milestones & owners', table(['Milestone', 'Owner', 'Due'], [['Scope agreed', 'Assign owner', 'Set date'], ['First version ready', 'Assign owner', 'Set date'], ['Release reviewed', 'Assign owner', 'Set date']])),
-    card('Risks & dependencies', table(['Dependency or risk', 'Response'], [['Input from another team', 'Agree a handoff date'], ['Unverified assumption', 'Run a small test'], ['Limited capacity', 'Reduce the first release']])),
-    card('Ready to deliver', tasks('Confirm acceptance criteria', 'Test the main and failure paths', 'Prepare handover and support notes', 'Agree who approves the release'), text('Review date: [date]\nEvidence of success: [result or link]')),
+    card('01 · Define the finish line', text('What will be different when this is done?'), table(['We will deliver', 'We will leave out'], [['One useful outcome', 'A tempting distraction']]), note('A smaller promise, kept well.')),
+    card('02 · Make a first version', tasks('Choose the smallest complete experience', 'Name an owner for the next step', 'Check the dependency most likely to slow you')),
+    card('03 · Check it in the real world', text('Try the main journey with someone who needs it.'), tasks('Test the happy path and a failure', 'Write down what surprised you', 'Fix the most important friction')),
+    card('04 · Ship, then learn', table(['Success signal', 'Review point'], [['What change will we look for?', 'When will we decide what is next?']]), tasks('Prepare the handover', 'Agree who makes the release decision')),
   ],
   'meeting-agenda': [
-    card('Prepare the meeting', text('Outcome: [decision or result]\nFacilitator: [name]\nDecision owner: [name]'), tasks('Invite the people needed for the decision', 'Share the context and pre-reading', 'Confirm the time available')),
-    card('Timeboxed agenda', table(['Topic', 'Minutes', 'Lead'], [['Context and goal', '5', 'Assign lead'], ['Options and evidence', '15', 'Assign lead'], ['Decision and actions', '10', 'Assign lead']])),
-    card('Decision log', table(['Decision', 'Reason or evidence'], [['What we agreed', 'Why this option'], ['Still open', 'What information is missing']]), text('Parking lot: [useful topics for another conversation]')),
-    card('Actions & follow-up', table(['Action', 'Owner', 'Due'], [['First next step', 'Assign owner', 'Set date'], ['Resolve an open question', 'Assign owner', 'Set date']]), tasks('Read back actions and owners', 'Share the decision and follow-up date')),
+    card('Arrive with a purpose', note('By the end, we need to decide…'), text('Invite the people who can move that decision forward.'), tasks('Share the context in advance', 'Agree who owns the decision')),
+    card('Make room for the discussion', table(['Topic', 'Timebox'], [['The decision that matters', '15 minutes'], ['Risks and open questions', '10 minutes']]), text('Example timing — adjust it to your meeting.')),
+    card('Capture the decision', table(['We decided', 'Because'], [['Write the choice clearly', 'Keep the reasoning with it']]), text('What would make us reconsider?')),
+    card('Leave with a next step', tasks('Name one owner per action', 'Agree a date for each handoff', 'Read back the commitments'), note('A useful meeting changes what happens next.')),
   ],
   'product-roadmap': [
-    card('Customer outcome', text('Help [customer] accomplish [job] with less [friction].'), table(['Evidence', 'What it suggests'], [['Customer observation', 'Problem to address'], ['Product signal', 'Opportunity to investigate']]), note('Plan around a customer outcome before choosing features.')),
-    card('Now · committed', table(['Bet', 'Owner', 'Success signal'], [['Current priority', 'Assign owner', 'Define outcome'], ['Smallest useful release', 'Assign owner', 'Define measure']]), tasks('Confirm capacity and dependencies', 'Agree a review date')),
-    card('Next · validate', table(['Opportunity', 'Evidence needed'], [['Potential next bet', 'Talk to affected customers'], ['Important assumption', 'Run a focused experiment']]), text('Move into Now only when the evidence and capacity support it.')),
-    card('Later · explore', text('Keep possibilities visible without promising delivery dates.'), tasks('Capture an emerging customer need', 'Record what would change the priority', 'Review outcomes from the current release'), text('Review rhythm: [weekly or monthly]')),
+    card('The outcome we are building for', text('Who needs a better experience, and what should change for them?'), table(['Evidence', 'Opportunity'], [['A repeated customer problem', 'A useful change to explore']]), note('Start with a need. Let the feature follow.')),
+    card('Now · make a commitment', tasks('Choose the smallest useful release', 'Check capacity and dependencies', 'Agree the signal of success'), text('Keep this lane small enough to finish.')),
+    card('Next · earn confidence', table(['Possibility', 'What we need to learn'], [['A promising bet', 'The riskiest assumption']]), tasks('Talk to affected customers', 'Run one focused experiment')),
+    card('Later · keep the possibility', text('Ideas worth remembering, without promising a date.'), tasks('Capture the need behind the idea', 'Record what would change its priority'), note('Review the evidence before moving an idea into Next.')),
   ],
   'user-research': [
-    card('Decision & learning goals', text('Decision to inform: [what will change]\nResearch question: [what we need to learn]'), table(['Assumption', 'Evidence needed'], [['What we believe today', 'A recent real example'], ['What could change our mind', 'A conflicting observation']])),
-    card('Participants & preparation', table(['Participant profile', 'Recruiting route'], [['People with this problem', 'Choose a relevant channel'], ['People using a workaround', 'Choose a relevant channel']]), tasks('Explain the purpose and ask for consent', 'Check the discussion guide', 'Prepare a place for notes')),
-    card('Interview guide', text('Tell me about the last time you tried this.\nWhat triggered the task?\nWhere did it become difficult?\nWhat did you try instead?'), note('Ask for concrete experiences. Separate observations from your interpretation.')),
-    card('Evidence → next action', table(['Observation', 'Implication'], [['Quote or behavior', 'Possible pattern'], ['Counterexample', 'Limit of the finding']]), tasks('Group repeated observations', 'Connect conclusions to evidence', 'Choose a small follow-up test')),
+    card('A question worth answering', note('What decision will this research help us make?'), tasks('Write the riskiest assumption', 'Name the people affected', 'Decide what evidence would change your mind')),
+    card('Listen for a real experience', text('“Tell me about the last time you tried this.”'), tasks('Ask what triggered the task', 'Explore the difficult moment', 'Notice the workaround')),
+    card('Keep the evidence close', table(['Observation', 'Possible meaning'], [['A specific quote or behavior', 'Your interpretation — still a hypothesis']]), text('Look for a counterexample before calling it a pattern.')),
+    card('Choose the next experiment', table(['What we learned', 'What we will try'], [['A pattern supported by evidence', 'A small, reversible next step']]), tasks('Connect the decision to its evidence', 'Choose how to tell if it helped')),
   ],
   'feature-brief': [
     card('Problem & evidence', text('For [user], [task] is difficult because [obstacle].'), table(['Evidence', 'Impact'], [['Customer feedback', 'What is harder today'], ['Observed behavior', 'Who and how often']]), note('Describe the problem before proposing a solution.')),
@@ -100,10 +102,10 @@ const workspaces = {
     card('Before publishing', tasks('Check every factual claim', 'Add descriptive source links', 'Replace vague wording with specifics', 'Check headings and reading flow', 'Confirm the title matches the article')),
   ],
   'study-notes': [
-    card('Explain the concept', text('Topic: [course or chapter]\nIn my own words: [plain explanation]\nWhy it matters: [where it is useful]'), note('Write from memory first, then check your explanation.')),
-    card('Ideas & examples', table(['Concept', 'Example or connection'], [['Key idea 1', 'A concrete example'], ['Key idea 2', 'How it connects to idea 1'], ['Common misconception', 'What is actually true']])),
-    card('Active recall', tasks('Explain the topic without notes', 'Solve or create a new example', 'Compare two related concepts', 'Check errors against the source'), text('Hardest question: [what remains unclear]')),
-    card('Review plan', table(['Review', 'What to check'], [['Next session', 'The hardest question'], ['Later review', 'Recall without reading first']]), text('Source: [book, chapter or link]\nNext question to explore: [question]')),
+    card('Explain it simply', text('Write the idea as if you were explaining it to a friend.'), note('Start from memory. Check your source afterwards.')),
+    card('Make a connection', table(['New idea', 'Something I already know'], [['A key concept', 'A familiar example or analogy']]), text('Where does this comparison stop working?')),
+    card('Test your understanding', tasks('Explain it without your notes', 'Try a new example', 'Find and correct one misconception')),
+    card('Come back to the hard part', table(['Still unclear', 'My next check'], [['One specific question', 'A source, example, or person who can help']]), tasks('Review the difficult idea next session', 'Explain it again in your own words')),
   ],
   'learning-plan': [
     card('Skill & proof', text('Skill: [observable ability]\nStarting point: [what I can do now]\nProof of progress: [small project or performance]'), note('Choose something you can demonstrate, not only a resource to finish.')),
@@ -145,21 +147,18 @@ function contentHeight(content, width) {
 }
 
 export function refineTemplate(template) {
+  const design = templateDesigns[template.id] || { layout: 'matrix', label: 'Connected ideas' };
   const cards = workspaces[template.id];
-  if (!cards) return template;
-  const width = 480;
+  if (!cards) return { ...template, layoutLabel: design.label, layout: design.layout };
+  const width = 400;
   const prepared = cards.map((item, index) => {
     const content = identifyBlocks(template.id, index, item.content, width);
-    return { id: index + 2, title: item.title, note: contentText(content), content, w: width, h: 100, contentHeight: contentHeight(content, width), color: 'white', shape: 'round' };
+    return { id: index + 2, title: item.title, note: contentText(content), content, contentLayout: 'card', w: width, h: 100, contentHeight: Math.max(contentHeight(content, width), 80 + (wrapPreviewText(item.title, width - 48, 18, 2).length - 1) * 26 + previewBlocks(content, width - 50).height), color: 'white', shape: 'round' };
   });
-  const firstRow = Math.max(prepared[0].contentHeight, prepared[1].contentHeight);
-  const root = template.board.nodes.find(item => item.root);
-  const nodes = [
-    { ...root, id: 1, x: 610, y: firstRow + 60 - 64, w: 280, h: 128, shape: 'round' },
-    ...prepared.map((item, index) => ({ ...item, x: index % 2 ? 1020 : 0, y: index < 2 ? 0 : firstRow + 120 })),
-  ];
-  const edges = prepared.map((item, index) => ({ id: index + 1, from: 1, to: item.id, side: index % 2 ? 'right' : 'left', structure: 'elbow', pattern: 'solid', weight: 'regular' }));
-  return { ...template, board: { ...template.board, nodes, edges } };
+  const originalRoot = template.board.nodes.find(item => item.root);
+  const root = { ...originalRoot, note: design.caption || originalRoot.note };
+  const { nodes, edges } = arrangeTemplateCards(prepared, root, design.layout);
+  return { ...template, layoutLabel: design.label, layout: design.layout, board: { ...template.board, nodes, edges } };
 }
 
 export function templateHighlights(template) {

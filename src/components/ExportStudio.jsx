@@ -1,3 +1,4 @@
+import { backupFiles } from "../lib/brand";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Icon from "./BoardIcon";
 import { exportDimensions } from "../lib/boardExport";
@@ -72,7 +73,7 @@ export default function ExportStudio({ selectedCount, onPrepare, onExport, onClo
     </div>
     {error && <p className={styles.error} role="alert">{error}</p>}
     <footer className={styles.footer}>
-      <button className={styles.backup} disabled={Boolean(busy)} onClick={() => download("nova")} title="Save the full board as an editable .nova file">{busy === "nova" ? "Saving…" : "Save backup"}</button>
+      <button className={styles.backup} disabled={Boolean(busy)} onClick={() => download("nova")} title={`Save the full board as an editable ${backupFiles.projectExtension} file`}>{busy === "nova" ? "Saving…" : "Save backup"}</button>
       <button className={styles.download} disabled={Boolean(busy) || loading || !preview?.prepared} onClick={() => download()}><Icon name="download" size={16}/>{busy && busy !== "nova" ? "Exporting…" : `Export ${format.toUpperCase()}`}</button>
     </footer>
   </dialog>;

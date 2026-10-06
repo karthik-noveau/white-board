@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build:production && npm run test:seo"
+  publish = "dist"
+
+[build.processing.html]
+  pretty_urls = false
+
+# Preview deployments deliberately have no production canonical origin.
+[context.deploy-preview]
+  command = "VITE_PUBLIC_APP_URL= npm run build && npm run test:seo"
+
+[context.branch-deploy]
+  command = "VITE_PUBLIC_APP_URL= npm run build && npm run test:seo"

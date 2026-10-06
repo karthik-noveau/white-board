@@ -28,7 +28,7 @@ const steps = [
   },
   {
     target: "export", icon: "download", title: "Save & export",
-    description: "Auto-saved here. Export images, SVG, PDF, or a Nova backup.",
+    description: "Auto-saved here. Export images, SVG, PDF, or a board backup.",
   },
 ];
 

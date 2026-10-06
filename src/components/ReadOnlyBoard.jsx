@@ -1,3 +1,5 @@
+import BrandMark from "./BrandMark";
+import { brand } from "../lib/brand";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { Node } from "./Canvas";
@@ -131,7 +133,7 @@ export default function ReadOnlyBoard({ project }) {
     if (event.key === "Escape" && commentsOpen) { event.preventDefault(); setCommentsOpen(false); viewportRef.current?.focus({ preventScroll: true }); }
   }}>
     <header className={styles.header}>
-      <Link to="/projects" className={styles.brand} aria-label="Nova projects"><span><Icon name="spark" size={18}/></span><b>Nova</b></Link>
+      <Link to="/projects" className={styles.brand} aria-label={`${brand.name} projects`}><span><BrandMark size={20}/></span><b>{brand.name}</b></Link>
       <div className={styles.title}><h1 title={project.title}>{project.title}</h1><p>Shared board</p></div>
       <span className={styles.access}><Icon name="eye" size={15}/>Read-only</span>
       <button aria-label="Comments" aria-expanded={commentsOpen} onClick={() => setCommentsOpen(value => !value)}><Icon name="comment" size={18}/><span>Comments</span></button>

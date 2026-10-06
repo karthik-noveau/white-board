@@ -1,3 +1,4 @@
+import BrandMark from './BrandMark';
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { boardPath } from "../lib/routes";
@@ -33,5 +34,5 @@ export default function SharedBoardRoute({ onImport }) {
 
   if (error) return <RouteNotice title="Couldn’t open shared board">{error}</RouteNotice>;
   if (readOnlyProject) return <Suspense fallback={<div className="appLoading" role="status">Opening shared board…</div>}><ReadOnlyBoard key={hash} project={readOnlyProject}/></Suspense>;
-  return <div className="appLoading" role="status"><span>✦</span><b>Opening shared board…</b></div>;
+  return <div className="appLoading" role="status"><span><BrandMark size={28}/></span><b>Opening shared board…</b></div>;
 }

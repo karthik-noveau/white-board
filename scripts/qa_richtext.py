@@ -8,7 +8,7 @@ from pathlib import Path
 from qa_browser import Browser
 
 
-b = Browser(int(os.environ.get("NOVA_QA_PORT", "9232")), os.environ.get("NOVA_QA_URL", "http://127.0.0.1:5183/"))
+b = Browser(int(os.environ.get("DRAWANYTHING_QA_PORT", os.environ.get("NOVA_QA_PORT", "9232"))), os.environ.get("DRAWANYTHING_QA_URL", os.environ.get("NOVA_QA_URL", "http://127.0.0.1:5183/")))
 results = []
 
 
@@ -133,7 +133,7 @@ try:
     b.call("Input.dispatchKeyEvent", {"type": "keyUp", "key": "Enter", "code": "Enter", "windowsVirtualKeyCode": 13, "text": "\r"})
     b.call("Input.insertText", {"text": "Second item"})
     check("Enter adds another editable list item", b.count(f'{field("note")} li') == 2, html("note"))
-    Path('/tmp/nova-richtext-editing.png').write_bytes(base64.b64decode(b.call('Page.captureScreenshot', {"format": "png"})['data']))
+    Path('/tmp/drawanything-richtext-editing.png').write_bytes(base64.b64decode(b.call('Page.captureScreenshot', {"format": "png"})['data']))
     b.key("Escape")
     b.pause(.7)
     check("Finishing editing keeps title", b.evaluate("document.querySelector('main article').textContent.includes('Alpha Updated Gamma')"))

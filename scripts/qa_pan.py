@@ -5,7 +5,7 @@ import os
 
 from qa_browser import Browser
 
-b = Browser(int(os.environ.get("NOVA_QA_PORT", "9232")), os.environ.get("NOVA_QA_URL", "http://127.0.0.1:5183/"))
+b = Browser(int(os.environ.get("DRAWANYTHING_QA_PORT", os.environ.get("NOVA_QA_PORT", "9232"))), os.environ.get("DRAWANYTHING_QA_URL", os.environ.get("NOVA_QA_URL", "http://127.0.0.1:5183/")))
 results = []
 
 

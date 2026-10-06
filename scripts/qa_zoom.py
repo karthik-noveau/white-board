@@ -6,8 +6,8 @@ import sys
 
 from qa_browser import Browser
 
-origin = os.environ.get("NOVA_QA_URL", "http://localhost:5177/").rstrip("/")
-b = Browser(int(os.environ.get("NOVA_QA_PORT", "9237")), origin + "/projects")
+origin = os.environ.get("DRAWANYTHING_QA_URL", os.environ.get("NOVA_QA_URL", "http://localhost:5177/")).rstrip("/")
+b = Browser(int(os.environ.get("DRAWANYTHING_QA_PORT", os.environ.get("NOVA_QA_PORT", "9237"))), origin + "/projects")
 cases = [(scale, modifier) for scale in [.01, .1, .3, .5, 1] for modifier in [4, 2, 0]]
 if "--repro" in sys.argv:
     cases = [(.3, 4)]

@@ -419,7 +419,7 @@ function CellDocument({ node, editing = false, mobileEditor = false, initialActi
         <select aria-label="Code language" value={b.language || 'Plain text'} onChange={event => patch(b.id, { language: event.target.value })}>
           {b.language && !CODE_LANGUAGES.includes(b.language) && <option value={b.language}>{b.language}</option>}
           {CODE_LANGUAGES.map(language => <option key={language} value={language}>{language}</option>)}
-        </select><Icon name="chevron" size={12}/>
+        </select>
       </div>}<button type="button" onClick={async () => { try { await navigator.clipboard.writeText(b.code || ''); setMessage('Code copied'); } catch { setMessage('Could not copy. Select the code to copy it.'); } }}><Icon name="duplicate" size={14}/>Copy</button></div><Suspense fallback={<pre data-cell-text>{b.code || 'Loading editor…'}</pre>}>
         <CodeEditor value={b.code || ''} language={b.language || 'Plain text'} readOnly={readonly} autoFocus={focus?.id === b.id} onChange={code => patch(b.id, { code }, b.id)}/>
       </Suspense></div>}

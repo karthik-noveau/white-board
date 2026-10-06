@@ -1,3 +1,4 @@
+import { brand } from "../lib/brand";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createShareUrl, isLocalShareUrl } from "../lib/boardShare";
 import Icon from "./BoardIcon";
@@ -62,7 +63,7 @@ export default function ShareBoard({ project, onClose, onBackup }) {
           <button onClick={copy} disabled={!url}><Icon name="duplicate" size={15}/>{copied ? "Copied" : "Copy link"}</button>
         </div>
         <small>{access === "readonly" ? "Opens in a read-only viewer." : "Each person gets their own editable copy."} Includes the entire board. Later edits need a new link.</small>
-        {url && isLocalShareUrl(url) && <p className={styles.notice}>This is a local address. Host Nova publicly to share across devices.</p>}
+        {url && isLocalShareUrl(url) && <p className={styles.notice}>This is a local address. Host {brand.name} publicly to share across devices.</p>}
         <span className={styles.status} role="status">{copied ? "Link copied" : copyError}</span>
       </>}
     </div>

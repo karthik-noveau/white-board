@@ -69,7 +69,7 @@ export default function BoardTourPreview({ target }) {
           <path d="M214 20h36l16 16v52a6 6 0 0 1-6 6h-46a6 6 0 0 1-6-6V26a6 6 0 0 1 6-6Z" fill="white" stroke="#d9cce9"/>
           <path d="M249 20v13a4 4 0 0 0 4 4h13" stroke="#d9cce9"/>
           <g transform="translate(228 42)"><Icon name="download" size={20}/></g>
-          <text className={styles.miniFileType} x="237" y="81" textAnchor="middle">.nova</text>
+          <text className={styles.miniFileType} x="237" y="81" textAnchor="middle">BOARD</text>
         </g>
         <circle cx="36" cy="14" r="3" fill="#89b79c"/>
         <text className={styles.miniSaved} x="45" y="17">Saved locally</text>

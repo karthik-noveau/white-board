@@ -5,6 +5,23 @@ import { nodeSize } from "../src/lib/boardAppearance.js";
 import { normalizeCellContent, walkContent, contentText } from '../src/lib/cellContent.js';
 import { templateHighlights } from '../src/data/templateWorkspaces.js';
 import { createShareUrl, readShareLink } from '../src/lib/boardShare.js';
+import { boardEdgeData } from '../src/lib/boardGeometry.js';
+import { connectionLabelPoint } from '../src/lib/connectionLabels.js';
+
+test('structured template connections travel between cards without crossing their content', () => {
+  for (const template of templates.filter(item => item.board.nodes.some(node => node.content))) {
+    const { nodes, edges, globalSettings } = template.board;
+    for (const edge of boardEdgeData(nodes, edges, globalSettings)) {
+      for (const node of nodes.filter(item => item.id !== edge.from && item.id !== edge.to)) {
+        const size = nodeSize(node);
+        for (let sample = 1; sample < 200; sample++) {
+          const point = connectionLabelPoint(edge.path, sample / 200);
+          assert.ok(!(point.x > node.x + 4 && point.x < node.x + size.width - 4 && point.y > node.y + 4 && point.y < node.y + size.height - 4), `${template.id}: a connection crosses ${node.title}`);
+        }
+      }
+    }
+  }
+});
 
 test("the curated catalog has unique IDs, valid categories, and useful getting-started guidance", () => {
   assert.equal(templates.length, 24);

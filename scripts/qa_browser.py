@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small dependency-free CDP harness for Nova's local browser QA."""
+"""Small dependency-free CDP harness for DrawAnything's local browser QA."""
 
 import json
 import os
@@ -13,8 +13,8 @@ import websocket
 
 class Browser:
     def __init__(self, port=None, url=None):
-        port = port or int(os.environ.get("NOVA_QA_PORT", "9225"))
-        url = url or os.environ.get("NOVA_QA_URL", "http://127.0.0.1:5176/")
+        port = port or int(os.environ.get("DRAWANYTHING_QA_PORT", os.environ.get("NOVA_QA_PORT", "9225")))
+        url = url or os.environ.get("DRAWANYTHING_QA_URL", os.environ.get("NOVA_QA_URL", "http://127.0.0.1:5176/"))
         request = urllib.request.Request(
             f"http://127.0.0.1:{port}/json/new?{urllib.parse.quote(url)}",
             method="PUT",

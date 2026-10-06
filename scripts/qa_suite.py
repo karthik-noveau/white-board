@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end functional audit for Nova using an isolated Chrome CDP session."""
+"""End-to-end functional audit for DrawAnything using an isolated Chrome CDP session."""
 
 import json
 import time

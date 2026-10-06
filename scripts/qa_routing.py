@@ -11,8 +11,8 @@ from urllib.parse import quote
 
 from qa_browser import Browser
 
-PORT = int(os.environ.get("NOVA_QA_PORT", "9232"))
-BASE = os.environ.get("NOVA_QA_URL", "http://127.0.0.1:5185/").rstrip("/")
+PORT = int(os.environ.get("DRAWANYTHING_QA_PORT", os.environ.get("NOVA_QA_PORT", "9232")))
+BASE = os.environ.get("DRAWANYTHING_QA_URL", os.environ.get("NOVA_QA_URL", "http://127.0.0.1:5185/")).rstrip("/")
 b = Browser(PORT, BASE + "/")
 results = []
 
@@ -80,7 +80,7 @@ try:
     check("Creating a board updates the URL", board_route.startswith('/boards/project-'))
     title = "Routing QA " + str(b.evaluate("Date.now()"))
     rename(title)
-    b.wait_for(f"document.title==={json.dumps(title + ' · Nova')}")
+    b.wait_for(f"document.title==={json.dumps(title + ' · DrawAnything')}")
     check("Board title updates the tab title", True)
 
     # Leave before the 350 ms debounce expires, while the editable field is open.
@@ -149,7 +149,7 @@ try:
     b.wait_ready()
     b.wait_for("!!document.querySelector('[aria-label=\"Search projects\"]')")
     check("Folder names containing slash, percent, and Unicode survive refresh", folder in b.text() and title in b.text())
-    Path('/tmp/nova-routing-workspace.png').write_bytes(base64.b64decode(b.call('Page.captureScreenshot', {'format': 'png'})['data']))
+    Path('/tmp/drawanything-routing-workspace.png').write_bytes(base64.b64decode(b.call('Page.captureScreenshot', {'format': 'png'})['data']))
     check("Project can be moved to Trash", card_action(title, 'Move project to trash'))
     visit(board_route)
     b.wait_for("document.body.innerText.includes('This board is in Trash')")

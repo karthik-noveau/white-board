@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deep mutation and persistence tests for Nova's advanced workflows."""
+"""Deep mutation and persistence tests for DrawAnything's advanced workflows."""
 
 import json
 import time

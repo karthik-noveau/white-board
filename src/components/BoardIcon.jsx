@@ -1,10 +1,10 @@
 import ConnectorIcon from "./ConnectorIcon";
-import { Code, Link2, Eraser, ListOrdered, List, Quote, SquareCode, LayoutTemplate } from 'lucide-react';
+import { Code, Link2, Eraser, ListOrdered, List, Quote, SquareCode, LayoutTemplate, Layers3, HardDrive } from 'lucide-react';
 
 const iconComponents = {
   textCode: Code, textLink: Link2, textClear: Eraser,
   textNumberedList: ListOrdered, textBulletedList: List, textQuote: Quote, textCodeBlock: SquareCode,
-  template: LayoutTemplate,
+  template: LayoutTemplate, workspace: Layers3, deviceStorage: HardDrive,
 };
 
 /** Shared board icons: each symbol keeps the same meaning across toolbars. */

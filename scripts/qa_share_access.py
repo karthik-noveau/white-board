@@ -3,9 +3,9 @@
 import base64,json,os
 from pathlib import Path
 from qa_browser import Browser
-BASE=os.environ.get('NOVA_QA_URL','http://localhost:5177/').rstrip('/')
-b=Browser(int(os.environ.get('NOVA_QA_PORT','9237')),BASE+'/projects')
-out=Path(os.environ.get('NOVA_QA_OUTPUT','/tmp/nova-share-access-review'));out.mkdir(exist_ok=True)
+BASE=os.environ.get("DRAWANYTHING_QA_URL", os.environ.get("NOVA_QA_URL", 'http://localhost:5177/')).rstrip('/')
+b=Browser(int(os.environ.get("DRAWANYTHING_QA_PORT", os.environ.get("NOVA_QA_PORT", '9237'))),BASE+'/projects')
+out=Path(os.environ.get("DRAWANYTHING_QA_OUTPUT", os.environ.get("NOVA_QA_OUTPUT", '/tmp/drawanything-share-access-review')));out.mkdir(exist_ok=True)
 def click(selector,count=1):
  p=b.evaluate('(()=>{const e=document.querySelector('+json.dumps(selector)+');if(!e)throw new Error("Missing target: "+'+json.dumps(selector)+');const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()')
  b.call('Input.dispatchMouseEvent',{'type':'mouseMoved',**p})

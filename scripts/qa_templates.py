@@ -6,10 +6,10 @@ import os
 from pathlib import Path
 from qa_browser import Browser
 
-BASE = os.environ.get("NOVA_QA_URL", "http://localhost:5177").rstrip("/")
-out = Path(os.environ.get("NOVA_QA_OUTPUT", "/tmp/nova-templates-review"))
+BASE = os.environ.get("DRAWANYTHING_QA_URL", os.environ.get("NOVA_QA_URL", "http://localhost:5177")).rstrip("/")
+out = Path(os.environ.get("DRAWANYTHING_QA_OUTPUT", os.environ.get("NOVA_QA_OUTPUT", "/tmp/drawanything-templates-review")))
 out.mkdir(exist_ok=True)
-b = Browser(int(os.environ.get("NOVA_QA_PORT", "9237")), BASE + "/projects?templates=1")
+b = Browser(int(os.environ.get("DRAWANYTHING_QA_PORT", os.environ.get("NOVA_QA_PORT", "9237"))), BASE + "/projects?templates=1")
 
 def visit(path):
     b.call("Page.navigate", {"url": BASE + path})

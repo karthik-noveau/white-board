@@ -1,3 +1,4 @@
+import { brand } from "./brand.js";
 import { nodeSize, palettes, rootColors, isCardContent, isCardText } from "./boardAppearance.js";
 import { contentText, safeAttachment } from './cellContent.js';
 
@@ -247,7 +248,7 @@ async function rasterize(prepared, size, opaque) {
 export async function createPdfBlob(imageBlob, page, title) {
   const { jsPDF } = await import("jspdf");
   const pdf = new jsPDF({ unit: "pt", format: [page.pageWidth, page.pageHeight], orientation: page.pageWidth > page.pageHeight ? "landscape" : "portrait", compress: true });
-  pdf.setProperties({ title, creator: "Nova" });
+  pdf.setProperties({ title, creator: brand.name });
   pdf.addImage(new Uint8Array(await imageBlob.arrayBuffer()), "PNG", page.x, page.y, page.width, page.height, undefined, "FAST");
   return pdf.output("blob");
 }

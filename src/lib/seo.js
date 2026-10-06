@@ -11,7 +11,7 @@ export function pageMetadata(pathname, origin = siteOrigin) {
   const template = templates.find(item => templatePath(item) === path);
   const isPublic = publicPaths.includes(path);
   const title = template ? `${template.name} template — ${brand.name}` : path === '/templates' ? `Whiteboard & mind map templates — ${brand.name}` : path === '/' ? `${brand.name} — Private whiteboard for ideas & mind maps` : isWorkspacePath(path) ? `Your workspace — ${brand.name}` : `Page not found — ${brand.name}`;
-  const description = template ? `${template.description} Start with this editable ${brand.name} whiteboard template. Customize every card and connection, with no account needed.` : path === '/templates' ? `Explore ${templates.length} editable whiteboard templates for brainstorming, project planning, research, and learning. Preview a layout, then make it yours in ${brand.name}.` : brand.description;
+  const description = template ? `${template.description} Start with this editable ${brand.name} whiteboard template. Customize every card and connection, with no account needed.` : path === '/templates' ? `Explore ${templates.length} editable whiteboard templates for brainstorming, project planning, meetings, and learning. Preview a layout, then make it yours in ${brand.name}.` : brand.description;
   const canonical = isPublic && origin ? `${origin}${path}` : '';
   const imagePath = `/social/${template?.id || (path === '/templates' ? 'templates' : 'home')}.png`;
   const image = origin && isPublic ? `${origin}${imagePath}?v=${brand.assetVersion}` : '';

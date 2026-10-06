@@ -1,9 +1,9 @@
 .cell {
   --cell-body-size:14px;
   --cell-body-leading:22px;
-  --cell-muted:var(--nova-muted);
+  --cell-muted:var(--custom-note,var(--nova-muted));
   position:relative;width:100%;padding:22px 24px 24px;box-sizing:border-box;
-  color:var(--nova-text);font:400 var(--cell-body-size)/var(--cell-body-leading) var(--nova-font-family);
+  color:var(--custom-ink,var(--nova-text));font:400 var(--cell-body-size)/var(--cell-body-leading) var(--nova-font-family);
   text-align:left;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text;
 }
 .cell *, .slashMenu * { box-sizing:border-box; }
@@ -11,7 +11,7 @@
 .cell button { cursor:pointer; }
 .cell svg { display:block;flex:none; }
 .cell button:focus-visible,.cell a:focus-visible { outline:2px solid var(--nova-primary);outline-offset:2px; }
-.cellTitle { padding:0 0 16px;color:var(--nova-ink);font-size:18px;font-weight:600;line-height:26px;letter-spacing:-.025em; }
+.cellTitle { padding:0 0 16px;color:var(--custom-ink,var(--nova-ink));font-size:18px;font-weight:600;line-height:26px;letter-spacing:-.025em; }
 .cell .textField { display:block;width:100%;min-width:0;min-height:var(--cell-body-leading);margin:0;padding:0;resize:none;overflow:hidden;border:0;border-radius:3px;outline:none;background:transparent;box-shadow:none;color:inherit;font:inherit;line-height:inherit;letter-spacing:inherit;text-align:left;white-space:pre-wrap; }
 .cell .textField::placeholder { color:var(--cell-muted);opacity:.7; }
 .cell .textField:focus-visible { outline:none; }
@@ -21,7 +21,7 @@
 .prose { min-height:var(--cell-body-leading);white-space:pre-wrap; }
 .prose p,.prose div { margin:0!important;color:inherit!important;font:inherit!important;text-align:left!important; }
 .placeholder { color:var(--cell-muted);font-size:13px; }
-.heading { padding-top:6px;color:var(--nova-ink);font-size:16px;font-weight:600;line-height:24px;letter-spacing:-.015em; }
+.heading { padding-top:6px;color:var(--custom-ink,var(--nova-ink));font-size:16px;font-weight:600;line-height:24px;letter-spacing:-.015em; }
 .note { --note-accent:var(--nova-primary);padding:12px 14px;border:1px solid color-mix(in srgb,var(--note-accent) 18%,var(--nova-border));border-left:3px solid color-mix(in srgb,var(--note-accent) 55%,var(--nova-surface));border-radius:9px;background:color-mix(in srgb,var(--note-accent) 5%,var(--nova-surface));color:var(--nova-text); }
 .warm { --note-accent:#b88620; }
 .mint { --note-accent:var(--nova-success); }
@@ -243,3 +243,7 @@
 .mobileEditor .blockSelectionBar>span{flex-basis:100%;padding:0 8px;font-size:11px;}
 .mobileEditor .blockSelectionBar button{min-width:44px;min-height:44px;}
 @media(pointer:coarse){.blockSelectionBar button{min-width:44px;}.cell:not(.editing) .blockHandle{display:none;}}
+
+/* Blocks with their own light surface retain dark text inside a custom fill. */
+.tableScroll,.note,.codeBox,.linkBox,.fileBox,.attachmentEmpty,.imagePreview,.editBar{--custom-ink:var(--nova-ink);--custom-note:var(--nova-muted);--cell-muted:var(--nova-muted)}
+.tableScroll,.linkBox,.fileBox{color:var(--nova-text)}

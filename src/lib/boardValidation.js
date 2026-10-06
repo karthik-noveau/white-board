@@ -1,5 +1,5 @@
 import { normalizeCellContent } from './cellContent.js';
-import { palettes } from './boardAppearance.js';
+import { palettes, isBoardColor } from './boardAppearance.js';
 
 const isRecord = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const isId = value => Number.isSafeInteger(value) || (typeof value === "string" && value.length > 0 && value.length <= 200);
@@ -24,7 +24,7 @@ export function validateBoard(board, snapshot = false, message = "Invalid board 
       if (!optional(node[key], isText)) fail();
     }
     for (const key of ["w", "h", "rotate", "contentHeight"]) if (!optional(node[key], isNumber)) fail();
-    if (!optional(node.color, value => Object.hasOwn(palettes, value))) fail();
+    if (!optional(node.color, isBoardColor)) fail();
     if (node.content != null) { try { normalizeCellContent(node.content); } catch { fail(); } }
     if (!optional(node.tags, value => Array.isArray(value) && value.every(isText))) fail();
     if (!optional(node.comments, value => records(value) && value.every(comment => isId(comment.id) && isText(comment.text) && isNumber(comment.createdAt)))) fail();

@@ -107,6 +107,7 @@ test('homepage playground keeps edits across examples and carries them into a re
 
 test('template navigation and previews never create projects; creation needs Use template', async () => {
   const Home = await loadComponent('src/components/Home.jsx');
+  const WorkspaceLayout = await loadComponent('src/components/WorkspaceLayout.jsx');
   const TemplatePage = await loadComponent('src/components/TemplatePage.jsx');
   const { Routes, Route } = require('react-router');
   const root = createRoot(document.getElementById('root'));
@@ -115,16 +116,38 @@ test('template navigation and previews never create projects; creation needs Use
   try {
     await act(async () => root.render(React.createElement(MemoryRouter, { initialEntries: ['/projects'] },
       React.createElement(Routes, null,
-        React.createElement(Route, { path: '/projects', element: React.createElement(Home, { projects: [], deletedProjects: [], onCreate }) }),
+        React.createElement(Route, { path: '/projects', element: React.createElement(WorkspaceLayout, { projects: [], deletedProjects: [], onCreate }) },
+          React.createElement(Route, { index: true, element: React.createElement(Home, { projects: [], deletedProjects: [], onCreate }) }),
+          React.createElement(Route, { path: 'templates', element: React.createElement(TemplatePage, { onCreate, workspace: true }) }),
+          React.createElement(Route, { path: 'templates/:templateId', element: React.createElement(TemplatePage, { onCreate, workspace: true }) }),
+        ),
         React.createElement(Route, { path: '/templates', element: React.createElement(TemplatePage, { onCreate }) }),
         React.createElement(Route, { path: '/templates/:templateId', element: React.createElement(TemplatePage, { onCreate }) }),
       ))));
     assert.ok(!document.body.textContent.includes('Start something new'));
     assert.ok(!document.body.textContent.includes('A fresh canvas'));
-    await click(document.querySelector('a[href="/templates"]'));
+    const sidebar = document.querySelector('aside');
+    await click(sidebar.querySelector('a[href="/projects/templates"]'));
     assert.ok(document.querySelector('main[data-template-library]'));
+    assert.equal(document.querySelector('aside'), sidebar, 'the workspace navigation stays mounted');
+    assert.equal(sidebar.querySelector('a[href="/projects/templates"]').getAttribute('aria-current'), 'page');
+    assert.equal(sidebar.querySelector('a[href="/projects"]').getAttribute('aria-current'), null);
+    assert.ok(document.querySelector('main#workspace-content'));
     assert.equal(document.querySelector('dialog'), null);
+    assert.equal(document.querySelectorAll('[data-template-id]').length, 10);
+    for (const [category, count] of [['planning', 3], ['product', 3], ['teamwork', 1], ['strategy', 2], ['life', 1]]) {
+      assert.equal(document.querySelectorAll(`[data-template-collection="${category}"] [data-template-id]`).length, count);
+    }
+    assert.doesNotMatch(document.body.textContent, /Complex templates|Simple templates/);
+    assert.equal(sidebar.querySelector('a[href="/projects/templates"] small').textContent, '10');
     assert.equal(creations, 0);
+    assert.equal(document.querySelector('[data-template-id="weekly-plan"]').getAttribute('href'), '/projects/templates/weekly-plan');
+    await click(document.querySelector('[data-template-id="weekly-plan"]'));
+    assert.equal(document.querySelector('aside'), sidebar, 'template previews stay inside the workspace');
+    assert.equal(document.querySelectorAll('[aria-label="Related templates"] a').length, 3);
+    assert.ok([...document.querySelectorAll('[aria-label="Related templates"] a')].every(link => link.getAttribute('href').startsWith('/projects/templates/')));
+    await click(document.querySelector('[aria-label="Breadcrumb"] a[href="/projects/templates"]'));
+    assert.ok(document.querySelector('[data-template-id="weekly-plan"]'));
     await click(document.querySelector('[data-template-id="weekly-plan"]'));
     assert.equal(creations, 0);
     await click([...document.querySelectorAll('button')].find(button => button.textContent === 'Use template'));

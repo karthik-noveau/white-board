@@ -53,7 +53,7 @@ export function previewBlocks(content, width, gap = 14) {
       item.fontSize = block.type === 'heading' ? (block.level === 1 ? 22 : 18) : 14;
       item.leading = block.type === 'heading' ? 26 : 22;
       const boxed = ['note', 'link', 'file'].includes(block.type);
-      const value = block.type === 'link' ? [block.url, block.description].filter(Boolean).join('\n')
+      const value = block.type === 'link' ? [block.url || 'Add a link', block.description].filter(Boolean).join('\n')
         : block.type === 'file' ? [block.filename || 'Attachment', block.description].filter(Boolean).join('\n') : block.text;
       item.lines = wrapPreviewText(value, width - (boxed ? 28 : 0), item.fontSize);
       item.height = item.lines.length * item.leading + (boxed ? 28 : 0);

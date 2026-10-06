@@ -43,10 +43,11 @@ export default function BoardHeader({ title, onRename, saveStatus = "saved", onR
   const saving=saveStatus==="saving",saveFailed=saveStatus==="error";
   const saveLabel=saving?"Saving…":saveFailed?"Not saved":"Saved";
   const saveHint=saving?"Saving changes on this device":saveFailed?"Changes could not be saved. Click to retry.":"Saved on this device";
+  const backLabel = /^\/projects\/templates(?:[/?]|$)/.test(backTo || '') ? 'Back to templates' : 'Back to projects';
   const saveIndicator=<><span className={headerStyles.saveIcon}>{saving?<i className={headerStyles.savePulse}/>:<Icon name={saveFailed?"saveError":"check"} size={12}/>}</span><span className={headerStyles.saveLabel}>{saveLabel}</span></>;
 
   return <header className={styles.header}>
-    <Link className={styles.brand} to={backTo} aria-label="Back to projects" title="Back to projects"><div className={styles.logo}><BrandMark size={20}/></div><b>{brand.name}</b></Link>
+    <Link className={styles.brand} to={backTo} aria-label={backLabel} title={backLabel}><div className={styles.logo}><BrandMark size={20}/></div><b>{brand.name}</b></Link>
     <span className={styles.headerDivider}/>
     <div className={headerStyles.identity}><BoardTitleInput title={title} onRename={onRename}/><span className={headerStyles.saveAnnouncement} role="status" aria-live="polite" aria-atomic="true">{saveFailed?<button type="button" className={headerStyles.saveStatus} data-state={saveStatus} onClick={onRetrySave} aria-label="Not saved. Retry saving" title={saveHint}>{saveIndicator}</button>:<span className={headerStyles.saveStatus} data-state={saveStatus} title={saveHint} aria-label={saveHint}>{saveIndicator}</span>}</span></div>
     <div data-keyboard-toolbar className={headerStyles.historyControls} role="group" aria-label="Edit history"><button className={headerStyles.historyButton} onClick={onUndo} disabled={!canUndo} aria-label="Undo" title="Undo (⌘Z)"><Icon name="undo" size={16}/></button><button className={headerStyles.historyButton} onClick={onRedo} disabled={!canRedo} aria-label="Redo" title="Redo (⇧⌘Z)"><Icon name="redo" size={16}/></button></div>

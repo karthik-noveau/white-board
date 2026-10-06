@@ -3,7 +3,8 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { Route, Routes, useLocation, useNavigate, useParams } from "react-router";
 import Home from "./components/Home";
 import Landing from "./components/Landing";
-import TemplatePage from "./components/TemplatePage";
+import TemplatePage, { WorkspaceTemplatePage } from "./components/TemplatePage";
+import WorkspaceLayout from "./components/WorkspaceLayout";
 import RouteNotice from "./components/RouteNotice";
 import SharedBoardRoute from "./components/SharedBoardRoute";
 import PageTransition from "./components/PageTransition";
@@ -109,11 +110,13 @@ export default function App() {
     <Route path="/" element={<Landing onCreate={createProject}/>}/>
     <Route path="/templates" element={<TemplatePage onCreate={createProject}/>}/>
     <Route path="/templates/:templateId" element={<TemplatePage onCreate={createProject}/>}/>
-    <Route path="/projects">
+    <Route path="/projects" element={<WorkspaceLayout {...workspaceProps}/>}>
       <Route index element={<Home {...workspaceProps} section="projects"/>}/>
       <Route path="favorites" element={<Home {...workspaceProps} section="favorites"/>}/>
       <Route path="trash" element={<Home {...workspaceProps} section="trash"/>}/>
       <Route path="folders/:folderName" element={<Home {...workspaceProps} section="folder"/>}/>
+      <Route path="templates" element={<WorkspaceTemplatePage onCreate={createProject}/>}/>
+      <Route path="templates/:templateId" element={<WorkspaceTemplatePage onCreate={createProject}/>}/>
     </Route>
     <Route path="/share" element={<SharedBoardRoute onImport={importSharedProject}/>}/>
     <Route path="/boards/:boardId" element={<BoardRoute projects={projects} onRename={renameProject} onSave={saveBoard} onSaveCopy={saveBoardCopy} storageError={storageError}/>}/>

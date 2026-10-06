@@ -31,11 +31,19 @@ test('preview tables retain widths and recursively measure nested content', () =
   assert.equal(table.rows[0].cells[1].blocks[0].tasks[0].done,true);
 });
 
-test('every curated document preview fits within its card', () => {
-  for(const template of templates) for(const node of template.board.nodes.filter(node=>node.content)) {
-    const size=nodeSize(node);
-    const end=56+(wrapPreviewText(node.title,size.width-48,18,2).length-1)*26+previewBlocks(node.content,size.width-50).height;
-    assert.ok(end<=size.height-10,`${template.id}: ${node.title} overflows`);
+test('every curated prompt fits inside its preview card without truncation', () => {
+  for (const template of templates) for (const node of template.board.nodes) {
+    const size = nodeSize(node);
+    const titleLines = wrapPreviewText(node.title, size.width - 48, 18);
+    if (node.content) {
+      const end = 56 + (titleLines.length - 1) * 26 + previewBlocks(node.content, size.width - 50).height;
+      assert.ok(end <= size.height - 24, `${template.id}: ${node.title} blocks overflow`);
+      continue;
+    }
+    const noteLines = wrapPreviewText(node.note, size.width - 36, 14);
+    const textHeight = titleLines.length * 22 + 8 + noteLines.length * 20;
+    assert.ok(titleLines.length <= 2, `${template.id}: title wraps too far`);
+    assert.ok(textHeight <= size.height - 24, `${template.id}: ${node.title} overflows`);
   }
 });
 

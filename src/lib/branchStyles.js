@@ -1,7 +1,8 @@
+import { isBoardColor } from "./boardAppearance.js";
+
 const lineKeys = ["structure", "pattern", "weight"];
 const allowedValues = {
   shape: ["rectangle", "round", "soft", "pill", "ellipse", "circle"],
-  color: ["violet", "blue", "amber", "pink", "green", "orange", "white"],
   structure: ["curve", "straight", "elbow"],
   pattern: ["solid", "dashed", "dotted"],
   weight: ["thin", "regular", "bold"],
@@ -61,7 +62,7 @@ export function branchStyleSettings(nodes, edges, scope, defaults) {
 }
 
 export function applyBranchStyle(nodes, edges, scope, key, value, canvasLocked = false) {
-  if (canvasLocked || scope.locked || !allowedValues[key]?.includes(value)) return { nodes, edges };
+  if (canvasLocked || scope.locked || !(key === "color" ? isBoardColor(value) : allowedValues[key]?.includes(value))) return { nodes, edges };
   const isLine = lineKeys.includes(key);
   let nodesChanged = false, edgesChanged = false;
   const nextNodes = nodes.map(node => {

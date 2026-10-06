@@ -1,0 +1,25 @@
+.picker{width:100%;min-width:0;color:var(--nova-text)}
+.swatches{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.picker .swatch{display:grid;place-items:center;width:100%;height:38px;min-width:0;padding:4px;border:1px solid transparent;border-radius:9px;background:transparent;cursor:pointer}
+.swatch i{display:block;width:26px;height:26px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px var(--nova-border)}
+.picker .swatch:hover,.picker .swatch[aria-pressed=true]{border-color:var(--nova-primary-border);background:var(--nova-primary-soft)}
+.custom{display:flex;flex-direction:column;gap:8px;margin:8px 0 0;padding:12px 4px 4px;border-top:1px solid var(--nova-border)}
+.custom label,.recent>span{font-size:12px;font-weight:500;line-height:18px;color:var(--nova-muted)}
+.fields{display:flex;align-items:center;gap:8px;min-width:0}
+.fields .colorTrigger{flex:0 0 34px;width:34px;height:34px;padding:3px;border:1px solid var(--nova-border);border-radius:8px;background:var(--nova-surface);cursor:pointer}
+.colorTrigger i{display:block;width:26px;height:26px;border-radius:4px}
+.fields .hex{flex:1;width:0;min-width:0;height:34px;padding:0 9px;border:1px solid var(--nova-border);border-radius:8px;background:var(--nova-surface);color:var(--nova-ink);font:12px/1.4 ui-monospace,monospace;text-transform:uppercase}
+.fields .hex[aria-invalid=true]{border-color:#b42318}
+.fields .apply{flex:none;height:34px;padding:0 12px;border:1px solid var(--nova-primary);border-radius:8px;background:var(--nova-primary);color:#fff;font:500 12px/1 var(--nova-font-family);cursor:pointer}
+.fields .apply:hover{filter:brightness(.94)}
+.picker :is(button,input):focus-visible{outline:2px solid var(--nova-primary);outline-offset:2px}
+.picker :disabled{opacity:.45;cursor:default}
+.custom .error{margin:0;color:#b42318;font-size:11px;line-height:17px}
+.recent{display:flex;flex-direction:column;gap:5px;padding:10px 0 0}
+.recent>span{padding:0 4px}
+/* Overlay placement measures temporary positions synchronously. Even the app's
+   reduced-motion transition duration must not animate these measurements. */
+.popup,.popup :global(.ant-select-dropdown){transition:none!important}
+/* Ant Design sizes inputs through its wrappers, including the format selector. */
+.popup input{min-height:0!important}
+@media(max-width:760px){.picker .swatch{height:40px}.fields .colorTrigger,.fields .hex,.fields .apply{height:44px}.fields .colorTrigger{flex-basis:44px;width:44px}.colorTrigger i{width:32px;height:32px}.fields .hex{font-size:16px;padding:0 6px}.fields{gap:6px}}

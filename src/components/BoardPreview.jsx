@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { nodeSize, palettes, rootColors, isCardContent } from '../lib/boardAppearance';
+import { nodeSize, paletteFor, customColors, rootColors, isCardContent } from '../lib/boardAppearance';
 import { versionPreviewData } from '../lib/versionPreview';
 import { safeAttachment } from '../lib/cellContent';
 import { previewBlocks, wrapPreviewText } from '../lib/previewLayout';
@@ -8,7 +8,7 @@ function Lines({ lines, x = 0, y = 16, leading = 22, ...props }) {
   return <text x={x} y={y} fontSize="14" fill="var(--nova-text)" {...props}>{lines.map((line, index) => <tspan key={index} x={x} dy={index ? leading : 0}>{line || '\u00a0'}</tspan>)}</text>;
 }
 
-function Blocks({ layout }) {
+function Blocks({ layout, ink }) {
   return layout.blocks.map(block => {
     const w = block.width, h = block.height;
     let content;
@@ -31,7 +31,7 @@ function Blocks({ layout }) {
       content = block.tasks.map((task, index) => <g key={index} transform={`translate(0 ${task.y})`}>
         <rect y="4" width="17" height="17" rx="4" fill={task.done ? 'var(--nova-primary)' : 'white'} stroke={task.done ? 'var(--nova-primary)' : 'var(--nova-muted)'}/>
         {task.done && <path d="m4 12 3 3 6-7" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>}
-        <Lines lines={task.lines} x={28} y={18} leading={24} textDecoration={task.done ? 'line-through' : undefined} fill={task.done ? 'var(--nova-muted)' : 'var(--nova-text)'}/>
+        <Lines lines={task.lines} x={28} y={18} leading={24} textDecoration={task.done ? 'line-through' : undefined} fill={ink || (task.done ? "var(--nova-muted)" : "var(--nova-text)")}/>
       </g>);
     } else if (block.type === 'image') {
       const data = safeAttachment(block.data, true);
@@ -43,14 +43,14 @@ function Blocks({ layout }) {
     } else {
       const boxed = ['note', 'link', 'file'].includes(block.type);
       const fills = { warm: '#fff8e7', mint: '#edf9f1', violet: '#f2edff' };
-      content = <>{boxed && <rect width={w} height={h} rx="8" fill={block.type === 'note' ? fills[block.tone] || fills.warm : 'white'} stroke="var(--nova-border)"/>}<Lines lines={block.lines} x={boxed ? 14 : 0} y={(boxed ? 14 : 0) + block.fontSize + 2} leading={block.leading} fontSize={block.fontSize} fontWeight={block.type === 'heading' ? '600' : undefined}/></>;
+      content = <>{boxed && <rect width={w} height={h} rx="8" fill={block.type === 'note' ? fills[block.tone] || fills.warm : 'white'} stroke="var(--nova-border)"/>}<Lines lines={block.lines} x={boxed ? 14 : 0} y={(boxed ? 14 : 0) + block.fontSize + 2} leading={block.leading} fontSize={block.fontSize} fontWeight={block.type === 'heading' ? '600' : undefined} fill={boxed ? 'var(--nova-text)' : ink || 'var(--nova-text)'}/></>;
     }
     return <g key={block.id} transform={`translate(0 ${block.y})`}>{content}</g>;
   });
 }
 
 /** Shared bounded rendering for project thumbnails, the library and landing page. */
-export default function BoardPreview({ board, title = 'Your idea', accent = 'violet', detailed = false, zoom = 1, pan = { x: 0, y: 0 }, className, accessible = false }) {
+export default function BoardPreview({ board, title = 'Your idea', accent = 'violet', detailed = false, aspectRatio = 2, zoom = 1, pan = { x: 0, y: 0 }, className, accessible = false }) {
   const previewId = useId();
   const allNodes = board?.nodes || [
     { id: 1, x: 0, y: 130, title, root: true, color: accent },
@@ -67,17 +67,17 @@ export default function BoardPreview({ board, title = 'Your idea', accent = 'vio
   }
   const bounds = boxes.reduce((area, box) => ({ left: Math.min(area.left, box.left), top: Math.min(area.top, box.top), right: Math.max(area.right, box.right), bottom: Math.max(area.bottom, box.bottom) }), { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity });
   const width = bounds.right - bounds.left, height = bounds.bottom - bounds.top;
-  const viewWidth = detailed ? 1000 : 400, viewHeight = detailed ? 500 : 200;
+  const viewWidth = detailed ? 1000 : 400, viewHeight = viewWidth / aspectRatio;
   const scale = Math.min((viewWidth - 40) / Math.max(1, width), (viewHeight - 40) / Math.max(1, height), detailed ? 1 : .7);
   return <svg className={className} viewBox={`0 0 ${viewWidth} ${viewHeight}`} aria-hidden={accessible ? undefined : true} role={accessible ? 'img' : undefined} aria-label={accessible ? `${title}: ${nodes.length} cards and ${connections.length} connections` : undefined} focusable="false">
     {!nodes.length ? <text x={viewWidth / 2} y={viewHeight / 2} textAnchor="middle" fill="var(--nova-muted)" fontSize="14">A little room to think</text> : <g transform={`translate(${viewWidth / 2 + pan.x} ${viewHeight / 2 + pan.y}) scale(${zoom}) translate(${-viewWidth / 2} ${-viewHeight / 2})`}>
       <g transform={`translate(${(viewWidth - width * scale) / 2} ${(viewHeight - height * scale) / 2}) scale(${scale}) translate(${-bounds.left} ${-bounds.top})`}>
-        {connections.map(edge => <path key={edge.id} d={edge.path} stroke="var(--nova-border-strong)" strokeWidth={edge.weight === 'bold' ? 4 : edge.weight === 'thin' ? 1 : 2} strokeDasharray={edge.pattern === 'dotted' ? '2 5' : edge.pattern === 'dashed' ? '8 5' : undefined} fill="none"/>)}
+        {connections.map(edge => <path key={edge.id} d={edge.path} stroke="#aeb0b9" strokeWidth={Math.max(edge.weight === 'bold' ? 4 : edge.weight === 'thin' ? 1 : 2, .65 / scale)} strokeDasharray={edge.pattern === 'dotted' ? '2 5' : edge.pattern === 'dashed' ? '8 5' : undefined} fill="none"/>)}
         {nodes.map(node => {
-          const { width: w, height: h } = nodeSize(node), colors = palettes[node.color] || palettes.white;
+          const { width: w, height: h } = nodeSize(node), colors = paletteFor(node.color), custom = customColors(node.color);
           const document = node.content && !isCardContent(node);
-          const fill = document ? 'white' : node.root ? rootColors(node).fill : colors[0];
-          const color = document ? 'var(--nova-ink)' : node.root ? rootColors(node).text : 'var(--nova-ink)';
+          const fill = custom?.fill || (document ? 'white' : node.root ? rootColors(node).fill : colors[0]);
+          const color = custom?.text || (document ? 'var(--nova-ink)' : node.root ? rootColors(node).text : 'var(--nova-ink)');
           const round = ['circle', 'ellipse', 'pill'].includes(node.shape) ? Math.min(w, h) / 2 : node.shape === 'rectangle' ? 3 : 12;
           const clipId = `${previewId}-${node.id}`;
           const titleLines = wrapPreviewText(node.title || 'Untitled', w - 48, 18, 2);
@@ -89,9 +89,9 @@ export default function BoardPreview({ board, title = 'Your idea', accent = 'vio
             <rect width={w} height={h} rx={round} fill={fill} stroke={document ? 'var(--nova-border-strong)' : node.root ? fill : colors[1]} strokeWidth="1.5"/>
             <defs><clipPath id={clipId}><rect x="12" y="10" width={Math.max(0, w - 24)} height={Math.max(0, h - 20)}/></clipPath></defs>
             <g clipPath={`url(#${clipId})`}>
-              {node.content ? <><Lines lines={titleLines} x={24} y={40} fontSize="18" leading={26} fontWeight="600" fill={color}/><g transform={`translate(24 ${56 + (titleLines.length - 1) * 26})`}><Blocks layout={previewBlocks(node.content, w - 50)}/></g></> : <>
+              {node.content ? <><Lines lines={titleLines} x={24} y={40} fontSize="18" leading={26} fontWeight="600" fill={color}/><g transform={`translate(24 ${56 + (titleLines.length - 1) * 26})`}><Blocks layout={previewBlocks(node.content, w - 50)} ink={custom?.text || (isCardContent(node) && node.root ? rootColors(node).note : undefined)}/></g></> : <>
                 <Lines lines={titleLines} x={w / 2} y={textTop + 18} textAnchor="middle" fontSize="18" fontWeight="600" fill={color}/>
-                {noteLines.length > 0 && <Lines lines={noteLines} x={w / 2} y={textTop + titleLines.length * 22 + 24} textAnchor="middle" leading={20} fill={node.root ? rootColors(node).note : 'var(--nova-muted)'}/>}
+                {noteLines.length > 0 && <Lines lines={noteLines} x={w / 2} y={textTop + titleLines.length * 22 + 24} textAnchor="middle" leading={20} fill={custom?.note || (node.root ? rootColors(node).note : 'var(--nova-muted)')}/>}
               </>}
             </g>
           </g>;

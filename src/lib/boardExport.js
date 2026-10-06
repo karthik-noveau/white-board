@@ -1,5 +1,5 @@
 import { brand } from "./brand.js";
-import { nodeSize, palettes, rootColors, isCardContent, isCardText } from "./boardAppearance.js";
+import { nodeSize, paletteFor, customColors, rootColors, isCardContent, isCardText } from "./boardAppearance.js";
 import { contentText, safeAttachment } from './cellContent.js';
 
 const xml = value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" })[character]);
@@ -188,7 +188,7 @@ function fallbackText(node, width, height, colors) {
     const lines = [node.title, ...contentText(node.content).split('\n')];
     const centered = isCardText(node), x = centered ? width / 2 : 22;
     const y = centered ? height / 2 - (lines.length - 1) * 11 - 2 : 34;
-    return lines.map((line, index) => `<text x="${x}" y="${y+index*22}" text-anchor="${centered ? 'middle' : 'start'}" font-family="Arial,sans-serif" font-size="${index?13:17}" ${colorAttributes(isCardContent(node) ? (index ? colors.note : colors.text) : "#303139")}>${xml(line)}</text>`).join('');
+    return lines.map((line, index) => `<text x="${x}" y="${y+index*22}" text-anchor="${centered ? 'middle' : 'start'}" font-family="Arial,sans-serif" font-size="${index?13:17}" ${colorAttributes(isCardContent(node) || customColors(node.color) ? (index ? colors.note : colors.text) : "#303139")}>${xml(line)}</text>`).join('');
   }
   const title = xml(node.title), note = xml(node.note);
   const frame = node.kind === "frame", x = frame ? 20 : width / 2, y = frame ? 28 : height / 2 - (note ? 4 : -4), anchor = frame ? "start" : "middle";
@@ -201,7 +201,7 @@ export function createBoardSvg(nodes, edges, background = "white", elements = ne
   const { x, y, width, height } = bounds, ids = new Set(nodes.map(node => node.id));
   const backdrop = background === "transparent" ? "" : `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${background === "grid" ? "#f8f9fb" : "#fff"}"/>${background === "grid" ? `<defs><pattern id="export-grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#cfd2d9"/></pattern></defs><rect x="${x}" y="${y}" width="${width}" height="${height}" fill="url(#export-grid)"/>` : ""}`;
   const renderNode = (node, index) => {
-    const size = nodeSize(node), [bg, border] = palettes[node.color] || palettes.white, colors = node.content && !isCardContent(node) ? { fill: '#fff', text: '#303139', note: '#777983' } : node.root ? rootColors(node) : { fill: bg, text: "#303139", note: "#777983" };
+    const size = nodeSize(node), [bg, border] = paletteFor(node.color), colors = customColors(node.color) || (node.content && !isCardContent(node) ? { fill: '#fff', text: '#303139', note: '#777983' } : node.root ? rootColors(node) : { fill: bg, text: "#303139", note: "#777983" });
     const rx = node.content && !isCardContent(node) ? 12 : node.shape === "pill" ? size.height / 2 : node.shape === "rectangle" ? 2 : node.shape === "soft" ? 20 : 9;
     const ellipse = (!node.content || isCardContent(node)) && ["circle", "ellipse"].includes(node.shape);
     const geometry = ellipse ? `<ellipse cx="${size.width / 2}" cy="${size.height / 2}" rx="${size.width / 2}" ry="${size.height / 2}"` : `<rect width="${size.width}" height="${size.height}" rx="${rx}"`;

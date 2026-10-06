@@ -1,16 +1,17 @@
 import ConnectorIcon from "./ConnectorIcon";
-import { Code, Link2, Eraser, ListOrdered, List, Quote, SquareCode } from 'lucide-react';
+import { Code, Link2, Eraser, ListOrdered, List, Quote, SquareCode, LayoutTemplate } from 'lucide-react';
 
-const textIcons = {
+const iconComponents = {
   textCode: Code, textLink: Link2, textClear: Eraser,
   textNumberedList: ListOrdered, textBulletedList: List, textQuote: Quote, textCodeBlock: SquareCode,
+  template: LayoutTemplate,
 };
 
 /** Shared board icons: each symbol keeps the same meaning across toolbars. */
 export default function BoardIcon({ name, size = 18 }) {
   if (["link", "connect", "connectorPath"].includes(name)) return <ConnectorIcon size={size}/>;
-  const TextIcon = textIcons[name];
-  if (TextIcon) return <TextIcon size={size} strokeWidth={1.5} absoluteStrokeWidth aria-hidden="true" focusable="false"/>;
+  const IconComponent = iconComponents[name];
+  if (IconComponent) return <IconComponent size={size} strokeWidth={1.5} absoluteStrokeWidth aria-hidden="true" focusable="false"/>;
 
   const icons = {
     image: <><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 6-6 4 4 3-3 5 5"/></>,

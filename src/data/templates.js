@@ -1,3 +1,5 @@
+import { refineTemplate } from './templateWorkspaces.js';
+
 const settings={shape:"round",color:"white",structure:"elbow",pattern:"solid",weight:"regular"};
 const node=(id,x,y,title,note,color="white",shape="round",root=false)=>({id,x,y,title,note,color,shape,root});
 const edge=(id,from,to,side="right")=>({id,from,to,side,structure:"elbow",pattern:"solid",weight:"regular"});
@@ -242,7 +244,7 @@ export const templates = [
     board: { ...template.board, nodes: template.board.nodes.map(item => ({ ...item, h: item.shape === "circle" ? 144 : 108 })) },
   })),
   ...practicalTemplates,
-];
+].map(refineTemplate);
 
 export const featuredTemplateIds = ["weekly-plan", "project-plan", "meeting-agenda"];
 

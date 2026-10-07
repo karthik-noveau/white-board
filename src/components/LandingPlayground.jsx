@@ -1,6 +1,7 @@
 import { brand } from "../lib/brand";
 import { useLayoutEffect, useRef, useState } from 'react';
 import Icon from './BoardIcon';
+import BrandMark from './BrandMark';
 import { playgroundExamples, playgroundProject } from '../data/playground';
 import styles from '../styles/landingPlayground.module.css';
 
@@ -51,8 +52,11 @@ export default function LandingPlayground({ onCreate }) {
     update({ ideas: [...draft.ideas, { id, title: '', note: '' }] }); setNewIdea(id);
   };
   return <section className={styles.showcase} id="product" aria-label={`Try ${brand.name}`} data-reveal="">
-    <header className={styles.intro}><div><span className={styles.eyebrow}><i/>A LITTLE ROOM TO THINK</span><h2>See where one idea takes you.</h2><p>Make a connection. Find a possibility. Take the next step.</p></div></header>
     <div className={styles.playground}>
+      <header className={styles.boardHeader}>
+        <div className={styles.boardIdentity}><span className={styles.boardMark}><BrandMark size={19}/></span><span className={styles.boardDivider}/><h2>Your next big idea</h2><span className={styles.previewLabel}>Playground</span></div>
+        <span className={styles.boardStatus}><Icon name="lock" size={13}/>Just for you</span>
+      </header>
       <div className={styles.topline}><div className={styles.examples} role="group" aria-label="Choose an example">{playgroundExamples.map(example => <button key={example.id} aria-pressed={active === example.id} onClick={() => { setActive(example.id); setNewIdea(null); }}><Icon name={example.icon} size={16}/>{example.label}</button>)}</div><button className={styles.reset} onClick={() => { update(structuredClone(playgroundExamples.find(item => item.id === active))); setNewIdea(null); }} aria-label="Reset this example"><Icon name="undo" size={15}/><span>Reset</span></button></div>
       <div className={styles.surface} key={active}>
         <Connections count={draft.ideas.length}/>
@@ -62,6 +66,6 @@ export default function LandingPlayground({ onCreate }) {
       </div>
       <footer className={styles.footer}><span><Icon name="pencil" size={15}/>Click any idea to make it yours.</span><button className={styles.start} onClick={() => onCreate(playgroundProject(draft))}>Start with this board<Icon name="forward" size={18}/></button></footer>
     </div>
-    <p className={styles.caption}>A small preview of a much bigger canvas. Your edits come with you.</p>
+    <p className={styles.caption}>Go on, make it yours. This is a real, editable preview.</p>
   </section>;
 }

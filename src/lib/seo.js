@@ -1,19 +1,18 @@
 import { brand, siteOrigin } from './brand.js';
 import { templates } from '../data/templates.js';
 
-export const templatePath = template => `/templates/${typeof template === 'string' ? template : template.id}`;
-export const publicPaths = ['/', '/templates', ...templates.map(templatePath)];
+export const templatePath = template => `/templates#template-${typeof template === 'string' ? template : template.id}`;
+export const publicPaths = ['/', '/templates'];
 export const isWorkspacePath = path => /^\/(projects|boards)(\/|$)/.test(path) || path === '/share';
 
 // Use only trusted catalog data. Never serialize local board titles or content.
 export function pageMetadata(pathname, origin = siteOrigin) {
   const path = pathname === '/' ? '/' : pathname.replace(/\/$/, '');
-  const template = templates.find(item => templatePath(item) === path);
   const isPublic = publicPaths.includes(path);
-  const title = template ? `${template.name} template — ${brand.name}` : path === '/templates' ? `Whiteboard & mind map templates — ${brand.name}` : path === '/' ? `${brand.name} — Private whiteboard for ideas & mind maps` : isWorkspacePath(path) ? `Your workspace — ${brand.name}` : `Page not found — ${brand.name}`;
-  const description = template ? `${template.description} Start with this editable ${brand.name} whiteboard template. Customize every card and connection, with no account needed.` : path === '/templates' ? `Explore ${templates.length} editable whiteboard templates for brainstorming, project planning, meetings, and learning. Preview a layout, then make it yours in ${brand.name}.` : brand.description;
+  const title = path === '/templates' ? `Whiteboard & mind map templates — ${brand.name}` : path === '/' ? `${brand.name} — Private whiteboard for ideas & mind maps` : isWorkspacePath(path) ? `Your workspace — ${brand.name}` : `Page not found — ${brand.name}`;
+  const description = path === '/templates' ? `Explore ${templates.length} editable whiteboard templates for brainstorming, project planning, meetings, and learning. Preview a layout, then make it yours in ${brand.name}.` : brand.description;
   const canonical = isPublic && origin ? `${origin}${path}` : '';
-  const imagePath = `/social/${template?.id || (path === '/templates' ? 'templates' : 'home')}.png`;
+  const imagePath = `/social/${path === '/templates' ? 'templates' : 'home'}.png`;
   const image = origin && isPublic ? `${origin}${imagePath}?v=${brand.assetVersion}` : '';
   const schema = [];
   if (canonical) {
@@ -24,9 +23,9 @@ export function pageMetadata(pathname, origin = siteOrigin) {
     }
     schema.push({ '@type': path === '/templates' ? 'CollectionPage' : 'WebPage', '@id': `${canonical}#page`, url: canonical, name: title, description, inLanguage: 'en', isPartOf: { '@id': websiteId }, ...(image && { primaryImageOfPage: { '@type': 'ImageObject', url: image, width: 1200, height: 630 } }) });
     if (path === '/templates') schema.push({ '@type': 'ItemList', name: 'Whiteboard templates', numberOfItems: templates.length, itemListElement: templates.map((item, index) => ({ '@type': 'ListItem', position: index + 1, name: item.name, url: `${origin}${templatePath(item)}` })) });
-    if (path !== '/') schema.push({ '@type': 'BreadcrumbList', itemListElement: [{ name: brand.name, url: `${origin}/` }, { name: 'Templates', url: `${origin}/templates` }, ...(template ? [{ name: template.name, url: canonical }] : [])].map((item, index) => ({ '@type': 'ListItem', position: index + 1, name: item.name, item: item.url })) });
+    if (path !== '/') schema.push({ '@type': 'BreadcrumbList', itemListElement: [{ name: brand.name, url: `${origin}/` }, { name: 'Templates', url: `${origin}/templates` }].map((item, index) => ({ '@type': 'ListItem', position: index + 1, name: item.name, item: item.url })) });
   }
-  return { path, title, description, canonical, image, imageAlt: `${template?.name || brand.tagline} — ${brand.name} visual whiteboard`, isPublic, robots: isPublic && origin ? 'index, follow, max-image-preview:large' : 'noindex, nofollow, noarchive', schema: schema.length ? { '@context': 'https://schema.org', '@graph': schema } : null };
+  return { path, title, description, canonical, image, imageAlt: `${brand.tagline} — ${brand.name} visual whiteboard`, isPublic, robots: isPublic && origin ? 'index, follow, max-image-preview:large' : 'noindex, nofollow, noarchive', schema: schema.length ? { '@context': 'https://schema.org', '@graph': schema } : null };
 }
 
 export const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));

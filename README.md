@@ -19,7 +19,9 @@ Navigation uses React Router and the browser History API.
 | `/` | Landing page |
 | `/projects` | All projects |
 | `/templates` | Searchable, categorized template library |
-| `/templates/:templateId` | Public template preview and practical guide |
+| `/projects/templates` | Template library inside the workspace |
+| `/projects/restore#workspace.v1.…` | Preview and import a complete workspace backup URL |
+| `/templates/:templateId`, `/projects/templates/:templateId` | Legacy links redirect to the corresponding library |
 | `/projects/favorites` | Favorite projects |
 | `/projects/trash` | Recoverable deleted projects |
 | `/projects/folders/:folderName` | Projects in a URL-encoded folder |
@@ -30,8 +32,11 @@ Workspace searches use the `q` query parameter. Board links support opening in
 another tab, refresh, and browser Back/Forward. Missing pages and missing or
 deleted boards have recovery screens. Pending board changes save when leaving
 the board. A `/boards/:boardId` URL identifies local data. Use **Share** to copy a link
-that carries the full current board, including rich text, comments, connections,
-styles, saved views, and board metadata. Choose **Read-only** to open a viewer
+that carries the current board, including rich text, comments, connections,
+styles, and board metadata. Private presenter notes are excluded from every new
+link. Hidden cards and frames, and saved views containing older snapshots, are
+excluded by default; explicitly enable either option in Share to include them.
+Collapsed branches remain expandable. Choose **Read-only** to open a viewer
 with pan, zoom, branch expansion, and comment browsing; it does not import or
 save a board. Choose **Editable** to give the recipient a separate local copy
 with a new ID; existing boards are never overwritten. Edits are not synchronized.
@@ -42,6 +47,31 @@ rejected by older clients that cannot honor it.
 Read-only is an application viewing mode, not server-enforced authorization:
 snapshot data is included in the link, and there is no account-based access
 control or link revocation.
+
+Existing links keep the content encoded when they were created. Create a new
+link to apply the current sharing choices; older links cannot be revoked.
+
+Folders live in the main Projects area. Create empty folders, open them to see
+their projects, or use the folder menu to rename or remove them. Project menus
+and the bulk Move action offer existing folders and accept a new folder name.
+Removing a folder keeps its projects; renames and removals also update projects
+in Trash. Folder names and empty folders persist in device storage and travel
+with both file and URL workspace backups.
+
+Workspace backups wait for this tab's pending saves, read projects, history and
+the shape library together from device storage, and validate the result before
+downloading it. Changes made in other tabs are included. Imports reject invalid
+timestamps before writing any projects; older stored records with bad timestamps
+remain accessible with a fallback date label.
+
+The header offers **Import → Import file / Import from URL** and **Back up →
+Download file / Create backup URL**. Workspace URLs contain a complete snapshot,
+including Trash, version history, folders, favorites, saved shapes, hidden content,
+and private notes. Opening or pasting a URL only previews it; **Import workspace**
+adds copies with new project identities and keeps existing projects and shapes.
+These links are compressed locally, require no upload service, and are limited to
+100,000 characters and 8 MiB of uncompressed data. Oversized snapshots retain a
+**Download file** fallback. Anyone who has the URL can restore its contents.
 
 Share payloads are compressed and encoded in the URL fragment; no board-upload
 service is required. Anyone with the link can read its contents. Broken links
@@ -56,10 +86,11 @@ deployment directly.
 
 ## Templates
 
-The library includes 24 editable templates in six categories: Planning,
-Product & research, Teamwork, Strategy & ideas, Content & marketing, and
+The library includes 10 editable templates in five categories: Planning,
+Product & research, Teamwork, Strategy & ideas, and
 Learning & life. Search matches names, descriptions, categories, and keywords.
-Preview a board and its three-step guide before choosing **Use template**.
+Cards open a zoomable preview popup. Choose **Use template** from the card or
+the popup to create a board, without visiting a separate detail page.
 Every new board is a separate copy of the template.
 
 Template content, category metadata, featured picks, and layout helpers live in
@@ -82,10 +113,11 @@ favicons and the install manifest; production builds regenerate all assets.
 Versioned icon and social-image URLs help refresh previews after a rebrand.
 Increase `brand.assetVersion` when changing the public logo.
 
-The build renders the homepage, template library, and all 24 template guides to
+The build renders the homepage and template library to
 HTML. They have unique descriptions, canonical URLs, Open Graph/Twitter previews,
-and JSON-LD for the website, web application, collection, and breadcrumbs. Visible
-template links work without JavaScript. Interactive editing still requires it.
+and JSON-LD for the website, web application, collection, and breadcrumbs. The
+catalog is visible without JavaScript; previewing and editing require it.
+Retired template detail URLs redirect to the library and are excluded from the sitemap.
 Metadata contains only public catalog content, never local board data. Workspace,
 board, share, and missing-page responses have `noindex` in their initial HTML.
 
@@ -104,8 +136,8 @@ URLs and structured data and emits a blocking robots file and empty sitemap.
 No placeholder domain is shipped. Keep the variable unset for preview deployments;
 do not copy a production indexing configuration to an unrelated preview hostname.
 
-After deployment, verify `/robots.txt`, `/sitemap.xml`, and an individual template
-page at the real origin. Add that property to Google Search Console, submit the
+After deployment, verify `/robots.txt`, `/sitemap.xml`, and `/templates`
+at the real origin. Add that property to Google Search Console, submit the
 sitemap, and inspect those URLs. Search Console verification and indexing require
 access to the deployed domain; metadata alone does not guarantee rankings or
 specific search-result features.

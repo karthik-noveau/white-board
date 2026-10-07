@@ -1,7 +1,6 @@
-import BrandMark from "./BrandMark";
+import { SiteBrand, SiteHeaderFrame } from "./SiteHeader";
 import { brand } from "../lib/brand";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
 import { Node } from "./Canvas";
 import CommentsPanel from "./CommentsPanel";
 import Icon from "./BoardIcon";
@@ -132,12 +131,12 @@ export default function ReadOnlyBoard({ project }) {
   return <BlockWorkspaceContext.Provider value={{nodes:project.board.nodes,boardId:project.id,onNavigate:navigateReference}}><div className={`${canvasStyles.app} ${styles.app}`} data-readonly-board onKeyDown={event => {
     if (event.key === "Escape" && commentsOpen) { event.preventDefault(); setCommentsOpen(false); viewportRef.current?.focus({ preventScroll: true }); }
   }}>
-    <header className={styles.header}>
-      <Link to="/projects" className={styles.brand} aria-label={`${brand.name} projects`}><span><BrandMark size={20}/></span><b>{brand.name}</b></Link>
+    <SiteHeaderFrame className={styles.header} data-header-kind="editor">
+      <SiteBrand to="/projects" className={styles.brand} label={`${brand.name} projects`}/>
       <div className={styles.title}><h1 title={project.title}>{project.title}</h1><p>Shared board</p></div>
       <span className={styles.access}><Icon name="eye" size={15}/>Read-only</span>
       <button aria-label="Comments" aria-expanded={commentsOpen} onClick={() => setCommentsOpen(value => !value)}><Icon name="comment" size={18}/><span>Comments</span></button>
-    </header>
+    </SiteHeaderFrame>
     <main ref={viewportRef} className={styles.viewport} tabIndex={0} role="region" aria-label="Read-only board. Drag or use arrow keys to pan; plus and minus to zoom; zero to fit."
       onKeyDown={keyDown} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd} onLostPointerCapture={pointerEnd}
       style={{ backgroundPosition: `${transform.x}px ${transform.y}px`, backgroundSize: `${24 * transform.scale}px ${24 * transform.scale}px` }}>

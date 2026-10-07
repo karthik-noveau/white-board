@@ -7,6 +7,7 @@ import TemplatePage, { WorkspaceTemplatePage } from "./components/TemplatePage";
 import WorkspaceLayout from "./components/WorkspaceLayout";
 import RouteNotice from "./components/RouteNotice";
 import SharedBoardRoute from "./components/SharedBoardRoute";
+import WorkspaceRestoreRoute from './components/WorkspaceRestoreRoute';
 import PageTransition from "./components/PageTransition";
 import { boardPath, workspaceReturnPath } from "./lib/routes";
 import { createProjectSaveQueue } from "./lib/projectSaveQueue";
@@ -20,8 +21,12 @@ import {
   applyProjectBatch,
   exportWorkspaceFile,
   importNovaFile,
+  importWorkspacePayload,
+  readWorkspaceBackup,
   initializeWorkspace,
   listProjects,
+  listWorkspaceFolders,
+  changeWorkspaceFolder,
   moveProjectToTrash,
   permanentlyDeleteProject,
   putProject,
@@ -49,6 +54,7 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [projects,setProjects]=useState([]);
+  const [folders,setFolders]=useState([]);
   const projectsRef=useRef([]);
   const [persistProject] = useState(() => createProjectSaveQueue(putProject));
   const [loading,setLoading]=useState(true);
@@ -57,7 +63,7 @@ export default function App() {
   const initialization=useRef(null);
   const replaceProjects=useCallback(next=>{projectsRef.current=next;setProjects(next)},[]);
   const ensureWorkspace=useCallback(()=>{
-    if(!initialization.current) initialization.current=initializeWorkspace([]).then(items=>{replaceProjects(items);return items}).catch(error=>{setStorageError(error.message);throw error}).finally(()=>setLoading(false));
+    if(!initialization.current) initialization.current=initializeWorkspace([]).then(async items=>{replaceProjects(items);setFolders(await listWorkspaceFolders());return items}).catch(error=>{setStorageError(error.message);throw error}).finally(()=>setLoading(false));
     return initialization.current;
   },[replaceProjects]);
   const updateProject=useCallback((id,change,{snapshot=false}={})=>{
@@ -81,9 +87,9 @@ export default function App() {
   const duplicateProject=id=>{const source=projectsRef.current.find(project=>project.id===id);if(!source)return;const now=Date.now();const copy={...source,id:`project-${crypto.randomUUID()}`,storageRevision:0,title:`${source.title} copy`,created:now,updated:now,deletedAt:undefined,board:source.board?structuredClone(source.board):undefined};replaceProjects([copy,...projectsRef.current]);persistProject(copy,{snapshot:Boolean(copy.board)}).catch(error=>setStorageError(error.message))};
   const renameProject=(id,title)=>updateProject(id,{title:title.trim()||"Untitled mind map"});
   const toggleFavorite=id=>updateProject(id,current=>({favorite:!current.favorite}));
-  const moveToFolder=(id,folder)=>updateProject(id,{folder:folder.trim()});
+  const moveToFolder=(id,folder)=>batchProjects([id],'move',folder);
   const saveBoard=(id,board)=>updateProject(id,{board},{snapshot:true});
-  const importProject=async file=>{try{const imported=await importNovaFile(file);replaceProjects([...imported,...projectsRef.current]);navigate("/projects")}catch(error){setStorageError(error.message)}};
+  const importProject=async file=>{try{const imported=await importNovaFile(file);replaceProjects([...imported,...projectsRef.current]);setFolders(await listWorkspaceFolders());navigate("/projects")}catch(error){setStorageError(error.message)}};
   const importSharedProject=useCallback(async project=>{const saved=await persistProject({...project,storageRevision:0},{snapshot:true});replaceProjects([saved,...projectsRef.current])},[replaceProjects,persistProject]);
   const saveBoardCopy = async project => {
     const now = Date.now();
@@ -92,20 +98,42 @@ export default function App() {
     replaceProjects(await listProjects({ includeDeleted: true })); setStorageError("");
     navigate(boardPath(saved.id), { state: { from: "/projects" } });
   };
-  const backupWorkspace=()=>exportWorkspaceFile(projectsRef.current).catch(error=>setStorageError(error.message));
+  const backupWorkspace=async()=>{try{await persistProject.flush();await exportWorkspaceFile()}catch(error){setStorageError(error.message)}};
+  const readBackup = useCallback(async () => {
+    await ensureWorkspace();
+    await persistProject.flush();
+    return readWorkspaceBackup();
+  }, [ensureWorkspace, persistProject]);
+  const importWorkspace = async payload => {
+    await ensureWorkspace();
+    await persistProject.flush();
+    const imported = await importWorkspacePayload(payload);
+    replaceProjects([...imported, ...projectsRef.current]);
+    setFolders(await listWorkspaceFolders());
+    navigate('/projects', { replace: true });
+  };
   const batchProjects = async (ids, action, value) => {
     if (action === 'export') {
       const selected = projectsRef.current.filter(project => ids.includes(project.id) && !project.deletedAt);
       await exportProjectSelection(selected);
       return selected.length;
     }
+    await persistProject.flush();
     const changed = await applyProjectBatch(ids, action, value);
     const byId = new Map(changed.map(project => [project.id, project]));
     replaceProjects(projectsRef.current.map(project => byId.get(project.id) || project));
+    setFolders(await listWorkspaceFolders());
     return changed.length;
   };
+  const manageFolder = async (action, name, nextName) => {
+    await ensureWorkspace();
+    await persistProject.flush();
+    const result = await changeWorkspaceFolder(action, name, nextName);
+    replaceProjects(result.projects);
+    setFolders(result.folders);
+  };
   if(loading && isWorkspacePath(location.pathname))return <div className="appLoading" role="status"><span><BrandMark size={28}/></span><b>Opening your local workspace…</b></div>;
-  const workspaceProps={projects:projects.filter(project=>!project.deletedAt),deletedProjects:projects.filter(project=>project.deletedAt),storageError,onDismissError:()=>setStorageError(""),onCreate:createProject,onDelete:deleteProject,onRestore:restoreDeleted,onDeleteForever:deleteForever,onDuplicate:duplicateProject,onRename:renameProject,onFavorite:toggleFavorite,onMoveFolder:moveToFolder,onExport:exportProjectFile,onBackup:backupWorkspace,onImport:importProject,onBatchAction:batchProjects};
+  const workspaceProps={folders,onManageFolder:manageFolder,projects:projects.filter(project=>!project.deletedAt),deletedProjects:projects.filter(project=>project.deletedAt),storageError,onDismissError:()=>setStorageError(""),onCreate:createProject,onDelete:deleteProject,onRestore:restoreDeleted,onDeleteForever:deleteForever,onDuplicate:duplicateProject,onRename:renameProject,onFavorite:toggleFavorite,onMoveFolder:moveToFolder,onExport:exportProjectFile,onBackup:backupWorkspace,onImport:importProject,onReadBackup:readBackup,onImportWorkspace:importWorkspace,onBatchAction:batchProjects};
   return <>{createError && <div className="creationError" role="alert">{createError}<button onClick={()=>setCreateError("")}>Dismiss</button></div>}<PageTransition><Routes>
     <Route path="/" element={<Landing onCreate={createProject}/>}/>
     <Route path="/templates" element={<TemplatePage onCreate={createProject}/>}/>
@@ -114,6 +142,7 @@ export default function App() {
       <Route index element={<Home {...workspaceProps} section="projects"/>}/>
       <Route path="favorites" element={<Home {...workspaceProps} section="favorites"/>}/>
       <Route path="trash" element={<Home {...workspaceProps} section="trash"/>}/>
+      <Route path="restore" element={<WorkspaceRestoreRoute onImport={importWorkspace}/>}/>
       <Route path="folders/:folderName" element={<Home {...workspaceProps} section="folder"/>}/>
       <Route path="templates" element={<WorkspaceTemplatePage onCreate={createProject}/>}/>
       <Route path="templates/:templateId" element={<WorkspaceTemplatePage onCreate={createProject}/>}/>

@@ -1,5 +1,6 @@
 import { validateBoard } from './boardValidation.js';
 import { normalizeCellContent } from './cellContent.js';
+import { isValidTimestamp } from './projectDates.js';
 
 const invalid = 'This backup contains invalid or unsupported data. Nothing was imported.';
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -28,19 +29,19 @@ export function prepareWorkspaceImport(payload, now = Date.now()) {
   const projects = input.map(project => {
     if (!record(project) || !id(project.id) || identities.has(project.id)) fail();
     for (const field of ['title', 'accent', 'folder']) if (!optional(project[field], value => typeof value === 'string')) fail();
-    for (const field of ['created', 'updated', 'deletedAt']) if (!optional(project[field], Number.isFinite)) fail();
+    for (const field of ['created', 'updated', 'deletedAt']) if (!optional(project[field], isValidTimestamp)) fail();
     if (!optional(project.favorite, value => typeof value === 'boolean')) fail();
     const nextId = `project-${crypto.randomUUID()}`;
     identities.set(project.id, nextId);
     return { ...project, id: nextId, storageRevision: 1, title: project.title || 'Imported project',
-      created: project.created || project.updated || now, updated: project.updated || now,
+      created: project.created ?? project.updated ?? now, updated: project.updated ?? now,
       deletedAt: workspace ? project.deletedAt : undefined, schemaVersion: 1,
       ...(project.board != null ? { board: normalizeImportedBoard(project.board) } : {}),
     };
   });
   if (!optional(payload.versions, Array.isArray) || !optional(payload.shapeLibrary, Array.isArray)) fail();
   const versions = (workspace ? payload.versions || [] : []).map(version => {
-    if (!record(version) || !identities.has(version.projectId) || !Number.isFinite(version.createdAt)) fail();
+    if (!record(version) || !identities.has(version.projectId) || !isValidTimestamp(version.createdAt)) fail();
     if (!optional(version.label, value => typeof value === 'string') || !optional(version.pinned, value => typeof value === 'boolean')) fail();
     return { projectId: identities.get(version.projectId), createdAt: version.createdAt,
       ...(version.label != null ? { label: version.label } : {}), ...(version.pinned != null ? { pinned: version.pinned } : {}),
@@ -57,5 +58,7 @@ export function prepareWorkspaceImport(payload, now = Date.now()) {
     const board = normalizeImportedBoard({ nodes: item.payload.nodes, edges: item.payload.edges || [] });
     return { ...item, payload: { ...item.payload, ...board } };
   });
-  return { projects, versions, shapeLibrary };
+  if (!optional(payload.folders, value => Array.isArray(value) && value.every(folder => typeof folder === 'string' && folder.trim().length > 0 && folder.length <= 180))) fail();
+  const folders = [...new Set([...(workspace ? payload.folders || [] : []), ...projects.map(project => project.folder)].filter(Boolean))];
+  return { projects, versions, shapeLibrary, folders };
 }

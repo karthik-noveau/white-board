@@ -1,21 +1,11 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 import BoardIcon from "./BoardIcon";
-import BoardPreview from "./BoardPreview";
 import LandingPlayground from "./LandingPlayground";
-import { templates } from "../data/templates";
+import SiteHeader from "./SiteHeader";
 import BrandMark from "./BrandMark";
 import { brand } from "../lib/brand";
-import { templatePath } from "../lib/seo";
 import styles from "../styles/landing.module.css";
-
-const examples = [
-  { id: "product-roadmap", label: "Product roadmap", icon: "layout", title: "The next big thing", category: "STRATEGY & PLANNING", description: "Turn your vision into a clear plan of action." },
-  { id: "brainstorm", label: "Brainstorm", icon: "spark", title: "Room for possibilities", category: "IDEAS & EXPLORATION", description: "Explore possibilities and find your next breakthrough." },
-  { id: "study-notes", label: "Study notes", icon: "note", title: "Making sense of it all", category: "LEARNING & DISCOVERY", description: "Connect concepts and make knowledge stick." },
-];
-
-
 
 function Arrow({ diagonal = false }) {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={diagonal ? "M6 18 18 6M6 6h12v12" : "M4 12h16m-6-6 6 6-6 6"}/></svg>;
@@ -23,64 +13,12 @@ function Arrow({ diagonal = false }) {
 
 function IdeaBackdrop() {
   return <div className={styles.heroAtmosphere} aria-hidden="true">
-    <div className={`${styles.heroGlow} ${styles.glowLeft}`}/>
-    <div className={`${styles.heroGlow} ${styles.glowRight}`}/>
-    <div className={`${styles.heroGlow} ${styles.glowHorizon}`}/>
-    <svg className={`${styles.ideaField} ${styles.ideaFieldLeft}`} width="280" height="420" viewBox="0 0 280 420" fill="none" focusable="false">
-      <g className={styles.ideaTracks}>
-        <path d="M94 128v38q0 14 14 14h74q14 0 14 14v40" pathLength="1"/>
-        <path d="M196 306v42q0 14 14 14h70" pathLength="1"/>
-      </g>
-      <g className={styles.ideaSignals}>
-        <path d="M94 128v38q0 14 14 14h74q14 0 14 14v40" pathLength="1"/>
-        <path d="M196 306v42q0 14 14 14h70" pathLength="1"/>
-      </g>
-      <g transform="translate(26 48)"><g className={styles.ideaTile}>
-        <rect className={styles.ideaPaper} width="136" height="80" rx="12"/>
-        <path className={styles.ideaGlyph} d="m22 18 2.5 7.5L32 28l-7.5 2.5L22 38l-2.5-7.5L12 28l7.5-2.5Z"/>
-        <path className={styles.ideaInk} d="M45 25h67M45 33h42M17 56h75"/>
-        <rect className={styles.ideaAccent} x="106" y="51" width="13" height="10" rx="3"/>
-      </g></g>
-      <g transform="translate(126 234)"><g className={`${styles.ideaTile} ${styles.ideaTileSecond}`}>
-        <rect className={styles.ideaPaper} width="140" height="72" rx="12"/>
-        <rect className={styles.ideaAccent} x="15" y="16" width="27" height="27" rx="7"/>
-        <path className={styles.ideaGlyph} d="m22 29 4 4 9-10"/>
-        <path className={styles.ideaInk} d="M55 25h63M55 35h39M16 56h77"/>
-      </g></g>
-      <g className={styles.gridBits}><rect x="204" y="78" width="7" height="7" rx="2"/><path d="M39 262v12m-6-6h12"/><rect x="81" y="355" width="5" height="5" rx="1"/></g>
-    </svg>
-    <svg className={`${styles.ideaField} ${styles.ideaFieldRight}`} width="280" height="420" viewBox="0 0 280 420" fill="none" focusable="false">
-      <g className={styles.ideaTracks}>
-        <path d="M196 154v38q0 14-14 14h-82q-14 0-14 14v40" pathLength="1"/>
-        <path d="M86 332v34q0 14-14 14H0" pathLength="1"/>
-      </g>
-      <g className={styles.ideaSignals}>
-        <path d="M196 154v38q0 14-14 14h-82q-14 0-14 14v40" pathLength="1"/>
-        <path d="M86 332v34q0 14-14 14H0" pathLength="1"/>
-      </g>
-      <g transform="translate(126 76)"><g className={`${styles.ideaTile} ${styles.ideaTileThird}`}>
-        <rect className={styles.ideaPaper} width="140" height="78" rx="12"/>
-        <path className={styles.ideaGlyph} d="M18 31h11m-5-6 6 6-6 6M35 22v24"/>
-        <path className={styles.ideaInk} d="M51 26h66M51 36h42M18 59h78"/>
-        <rect className={styles.ideaAccent} x="109" y="53" width="14" height="11" rx="3"/>
-      </g></g>
-      <g transform="translate(18 260)"><g className={`${styles.ideaTile} ${styles.ideaTileFourth}`}>
-        <rect className={styles.ideaPaper} width="136" height="72" rx="12"/>
-        <path className={styles.ideaGlyph} d="M18 40V28m9 12V19m9 21V32"/>
-        <path className={styles.ideaInk} d="M51 26h63M51 36h41M18 55h86"/>
-      </g></g>
-      <g className={styles.gridBits}><rect x="59" y="117" width="6" height="6" rx="1"/><path d="M241 293v12m-6-6h12"/><rect x="199" y="369" width="5" height="5" rx="1"/></g>
-    </svg>
+    <img src="/images/landing-landscape.jpg" width="1774" height="887" alt="" fetchPriority="high" decoding="async"/>
   </div>;
 }
 
-function PreviewMap({ template, zoom = 100 }) {
-  return <BoardPreview board={template.board} title={template.name} detailed accessible zoom={zoom / 100} className={styles.map}/>;
-}
-
-
-function SectionHeading({ eyebrow, title, description, children }) {
-  return <div className={styles.sectionHeading} data-reveal=""><div><span className={styles.sectionEyebrow}>{eyebrow}</span><h2>{title}</h2>{description && <p>{description}</p>}</div>{children}</div>;
+function SectionHeading({ eyebrow, title, description }) {
+  return <div className={styles.sectionHeading} data-reveal=""><div><span className={styles.sectionEyebrow}>{eyebrow}</span><h2>{title}</h2>{description && <p>{description}</p>}</div></div>;
 }
 
 // Reveal once as content enters the viewport. Resting styles remain visible
@@ -145,21 +83,17 @@ export default function Landing({ onCreate }) {
 
   return <div ref={pageRef} className={styles.landing}>
     <a href="#main" className={styles.skipLink}>Skip to content</a>
-    <header className={styles.header}><div className={styles.nav}>
-      <Link to="/" className={styles.brand} aria-label={`${brand.name} home`}><span className={styles.brandIcon}><BrandMark size={24}/></span><b>{brand.name}</b></Link>
-      <nav aria-label="Main navigation"><Link to="/templates"><BoardIcon name="template" size={17}/>Templates</Link></nav>
-      <div className={styles.navActions}><Link className={styles.enterTop} to="/projects"><span className={styles.desktopWorkspace}>Open workspace</span><span className={styles.mobileWorkspace}>Workspace</span><Arrow/></Link></div>
-    </div></header>
+    <SiteHeader/>
 
     <main id="main">
       <section className={styles.hero} aria-labelledby="hero-title" data-ambient="">
         <IdeaBackdrop/>
         <div className={styles.heroCopy}>
-          <a className={styles.eyebrow} href="#product"><span><BoardIcon name="spark" size={15}/></span>A new perspective starts here<Arrow/></a>
-          <h1 id="hero-title">Big ideas deserve<br/><span>a bigger picture.</span></h1>
-          <p>Turn scattered thoughts into connected ideas, clear plans,<br className={styles.desktopBreak}/> and your next move. Your private online whiteboard.</p>
+          <a className={styles.eyebrow} href="#product"><BoardIcon name="spark" size={15}/>A little space for your next big idea<Arrow/></a>
+          <h1 id="hero-title">Big ideas deserve<br/>a bigger picture.</h1>
+          <p>A quiet place for messy thinking. Connect your ideas,<br className={styles.desktopBreak}/> find the possibilities, and make your next move.</p>
           <div className={styles.heroActions}><Link className={styles.primaryLink} to="/projects">Start creating <Arrow/></Link></div>
-          <div className={styles.heroNote}><span><Check/>No account needed</span><span><Check/>Private by default</span><span><Check/>Ready in seconds</span></div>
+          <div className={styles.heroNote}><span><Check/>No account needed</span><span><Check/>Private by default</span></div>
         </div>
         <LandingPlayground onCreate={onCreate}/>
       </section>
@@ -179,16 +113,6 @@ export default function Landing({ onCreate }) {
           <article className={styles.smallFeature} data-reveal=""><span className={styles.featureIcon}><BoardIcon name="present" size={22}/></span><h3>Make your point.</h3><p>Save the views that matter and present your board, one clear step at a time.</p><span className={styles.presentationDetail}><span/><span/><span/><Arrow/></span></article>
         </div>
       </section>
-
-      <section className={styles.templatesSection} id="templates" aria-labelledby="templates-title">
-        <SectionHeading eyebrow="A HEAD START ON WHAT’S NEXT" title={<span id="templates-title">Skip the blank canvas.</span>} description="Start with a little structure. Make it completely yours."><Link className={styles.textLink} to="/templates">All {templates.length} templates <Arrow/></Link></SectionHeading>
-        <div className={styles.templateGrid}>{examples.map((example, index) => {
-          const template = templates.find(item => item.id === example.id);
-          return <article key={example.id} className={styles.templateCard} data-reveal=""><Link className={styles.templatePreviewAction} to={templatePath(template)} aria-label={`Preview ${template.name}`}><span className={styles.templateArt}><PreviewMap template={template}/><span className={styles.templateTag}><BoardIcon name={example.icon} size={13}/>{index === 0 ? "Planning" : index === 1 ? "Ideation" : "Learning"}</span></span><span className={styles.templateCopy}><span className={styles.templateTitle}>{template.name}<Arrow diagonal/></span><span className={styles.templateDescription}>{example.description}</span></span></Link><button className={styles.templateUseAction} onClick={() => onCreate(template)} aria-label={`Use template: ${template.name}`}>Use template <Arrow/></button></article>;
-        })}</div>
-      </section>
-
-      <section className={styles.workflow} aria-labelledby="workflow-title"><div className={styles.workflowIntro} data-reveal=""><span className={styles.sectionEyebrow}>FROM IDEA TO ACTION</span><h2 id="workflow-title">Get into your flow.<br/>Stay there.</h2><Link className={styles.textLink} to="/projects">Open your workspace <Arrow/></Link></div><div className={styles.steps}>{[{title:"Start with a thought.", text:"Pick a template or start fresh. Get your first idea onto the canvas."}, {title:"Make the connections.", text:"Add branches, organize your thinking, and see how everything fits."}, {title:"Take the next step.", text:"Present your plan, share a snapshot, or come back when inspiration strikes."}].map((step, index) => <article key={step.title} data-reveal=""><span>0{index + 1}</span><div><h3>{step.title}</h3><p>{step.text}</p></div></article>)}</div></section>
 
       <section className={styles.faq} id="faq" aria-labelledby="faq-title"><div data-reveal=""><span className={styles.sectionEyebrow}>GOOD TO KNOW</span><h2 id="faq-title">A little clarity<br/>before you start.</h2></div><div className={styles.faqList} data-reveal="">{faqs.map(item => <details key={item.question}><summary>{item.question}<span aria-hidden="true">+</span></summary><p>{item.answer}</p></details>)}</div></section>
 

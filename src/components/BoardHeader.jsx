@@ -1,7 +1,5 @@
-import BrandMark from "./BrandMark";
-import { brand } from "../lib/brand";
+import { SiteBrand, SiteHeaderFrame } from "./SiteHeader";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
 import Icon from "./BoardIcon";
 import MotionPresence from "./MotionPresence";
 import styles from "../styles/canvas.module.css";
@@ -46,8 +44,8 @@ export default function BoardHeader({ title, onRename, saveStatus = "saved", onR
   const backLabel = /^\/projects\/templates(?:[/?]|$)/.test(backTo || '') ? 'Back to templates' : 'Back to projects';
   const saveIndicator=<><span className={headerStyles.saveIcon}>{saving?<i className={headerStyles.savePulse}/>:<Icon name={saveFailed?"saveError":"check"} size={12}/>}</span><span className={headerStyles.saveLabel}>{saveLabel}</span></>;
 
-  return <header className={styles.header}>
-    <Link className={styles.brand} to={backTo} aria-label={backLabel} title={backLabel}><div className={styles.logo}><BrandMark size={20}/></div><b>{brand.name}</b></Link>
+  return <SiteHeaderFrame className={styles.header} data-header-kind="editor">
+    <SiteBrand className={styles.brand} to={backTo} label={backLabel}/>
     <span className={styles.headerDivider}/>
     <div className={headerStyles.identity}><BoardTitleInput title={title} onRename={onRename}/><span className={headerStyles.saveAnnouncement} role="status" aria-live="polite" aria-atomic="true">{saveFailed?<button type="button" className={headerStyles.saveStatus} data-state={saveStatus} onClick={onRetrySave} aria-label="Not saved. Retry saving" title={saveHint}>{saveIndicator}</button>:<span className={headerStyles.saveStatus} data-state={saveStatus} title={saveHint} aria-label={saveHint}>{saveIndicator}</span>}</span></div>
     <div data-keyboard-toolbar className={headerStyles.historyControls} role="group" aria-label="Edit history"><button className={headerStyles.historyButton} onClick={onUndo} disabled={!canUndo} aria-label="Undo" title="Undo (⌘Z)"><Icon name="undo" size={16}/></button><button className={headerStyles.historyButton} onClick={onRedo} disabled={!canRedo} aria-label="Redo" title="Redo (⇧⌘Z)"><Icon name="redo" size={16}/></button></div>
@@ -59,5 +57,5 @@ export default function BoardHeader({ title, onRename, saveStatus = "saved", onR
       <button ref={triggerRef} className={styles.iconButton} data-tour="mobile-more" aria-label="More board actions" aria-expanded={moreOpen} aria-controls="mobile-board-actions" onClick={() => setMoreOpen(value => !value)}><Icon name="more" size={22}/></button>
       <MotionPresence present={moreOpen} kind="menu"><nav id="mobile-board-actions" className={styles.mobileActions} aria-label="Board actions"><button disabled={!canUndo} onClick={() => { setMoreOpen(false); triggerRef.current?.focus(); onUndo(); }}><Icon name="undo" size={16}/><span>Undo</span></button><button disabled={!canRedo} onClick={() => { setMoreOpen(false); triggerRef.current?.focus(); onRedo(); }}><Icon name="redo" size={16}/><span>Redo</span></button><button aria-pressed={selectingMultiple} onClick={() => { setMoreOpen(false); triggerRef.current?.focus(); onSelectMultiple(); }}><Icon name="cursor" size={19}/><span>{selectingMultiple ? "Finish selecting" : "Select multiple"}</span></button>{actions.map(([icon, label, action]) => <button key={icon} onClick={() => { setMoreOpen(false); triggerRef.current?.focus(); action(); }}><Icon name={icon} size={19}/><span>{label}</span></button>)}</nav></MotionPresence>
     </div>
-  </header>;
+  </SiteHeaderFrame>;
 }

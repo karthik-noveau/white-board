@@ -2,7 +2,7 @@ import { useId, useLayoutEffect, useRef } from "react";
 import Icon from "./BoardIcon";
 import styles from "../styles/deleteConfirmation.module.css";
 
-export default function DeleteConfirmation({ title, description, confirmLabel = "Delete", onConfirm, onClose, fallbackFocus }) {
+export default function DeleteConfirmation({ title, description, confirmLabel = "Delete", onConfirm, onClose, fallbackFocus, busy = false }) {
   const dialogRef = useRef(null), cancelRef = useRef(null);
   const titleId = useId(), descriptionId = useId();
   useLayoutEffect(() => {
@@ -17,14 +17,14 @@ export default function DeleteConfirmation({ title, description, confirmLabel = 
   }, [fallbackFocus]);
 
   return <dialog ref={dialogRef} className={styles.dialog} role="alertdialog" aria-labelledby={titleId} aria-describedby={descriptionId}
-    onCancel={event => { event.preventDefault(); onClose(); }}
+    onCancel={event => { event.preventDefault(); if (!busy) onClose(); }}
     onKeyDown={event => event.stopPropagation()} onKeyUp={event => event.stopPropagation()}
     onClick={event => {
-      if (event.target !== event.currentTarget) return;
+      if (busy || event.target !== event.currentTarget) return;
       const rect = event.currentTarget.getBoundingClientRect();
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) onClose();
     }}>
-    <button type="button" className={styles.close} onClick={onClose} aria-label="Cancel deletion"><Icon name="close" size={18}/></button>
+    <button type="button" disabled={busy} className={styles.close} onClick={onClose} aria-label="Cancel deletion"><Icon name="close" size={18}/></button>
     <div className={styles.content}>
       <span className={styles.icon}><Icon name="trash" size={28}/></span>
       <div className={styles.message}>
@@ -32,6 +32,6 @@ export default function DeleteConfirmation({ title, description, confirmLabel = 
         <p id={descriptionId}>{description}</p>
       </div>
     </div>
-    <div className={styles.actions}><button type="button" ref={cancelRef} className={styles.cancel} onClick={onClose}>Cancel</button><button type="button" className={styles.confirm} onClick={onConfirm}>{confirmLabel}</button></div>
+    <div className={styles.actions}><button type="button" disabled={busy} ref={cancelRef} className={styles.cancel} onClick={onClose}>Cancel</button><button type="button" disabled={busy} className={styles.confirm} onClick={onConfirm}>{confirmLabel}</button></div>
   </dialog>;
 }

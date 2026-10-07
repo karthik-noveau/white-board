@@ -27,7 +27,11 @@ for (const path of publicPaths) {
     const bytes = await readFile(`${output}${new URL(socialPath).pathname}`);
     assert.equal(bytes.readUInt32BE(16), 1200); assert.equal(bytes.readUInt32BE(20), 630);
   }
-  if (path === '/templates') for (const item of templates) assert.ok(doc.querySelector(`a[href="/templates/${item.id}"]`));
+  if (path === '/templates') for (const item of templates) {
+    assert.ok(doc.getElementById(`template-${item.id}`));
+    assert.ok(doc.querySelector(`button[data-template-id="${item.id}"][aria-haspopup="dialog"]`));
+    assert.ok(doc.querySelector(`button[aria-label="Use template: ${item.name}"]`));
+  }
   for (const link of doc.querySelectorAll('a[href]')) {
     const href = link.getAttribute('href');
     if (href.startsWith('#')) assert.ok(doc.getElementById(href.slice(1)), `${path}: broken section link ${href}`);
@@ -50,6 +54,7 @@ for (const file of ['app.html', '404.html']) {
 const sitemap = new JSDOM(await readFile(`${output}/sitemap.xml`, 'utf8'), { contentType: 'application/xml' }).window.document;
 assert.deepEqual([...sitemap.querySelectorAll('loc')].map(item => item.textContent), origin ? publicPaths.map(path => `${origin}${path}`) : []);
 const sw = await readFile(`${output}/sw.js`, 'utf8');
+assert.ok((await readFile(`${output}/_redirects`, 'utf8')).includes('/templates/* /templates 301!'));
 assert.ok(!sw.includes('__BUILD_REVISION__')); assert.ok(!sw.includes('__PRECACHE__'));
 const manifest = JSON.parse(await readFile(`${output}/manifest.webmanifest`, 'utf8'));
 assert.equal(manifest.short_name, brand.name);

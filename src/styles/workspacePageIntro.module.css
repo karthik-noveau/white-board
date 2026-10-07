@@ -1,0 +1,47 @@
+.intro {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  min-height: 220px;
+  margin: 0 0 32px;
+  padding: 36px;
+  overflow: hidden;
+  border: 1px solid #e4ddf0;
+  border-radius: 28px;
+  background: #f1edf9;
+  color: var(--nova-ink);
+}
+.intro::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(90deg, #f1edf9 0%, #f1edf9f5 38%, #f1edf9a6 70%, #f1edf947 100%), url('/images/landing-landscape.jpg') center 65% / cover;
+  pointer-events: none;
+}
+.copy { align-self: flex-start; min-width: 0; max-width: 680px; }
+.eyebrow { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; color: var(--nova-primary); font-size: 11px; font-weight: 650; line-height: 1.5; letter-spacing: .12em; text-transform: uppercase; }
+.eyebrow>span { width: 5px; height: 5px; flex-shrink: 0; border-radius: 50%; background: currentColor; }
+.intro h1 { margin: 0; overflow-wrap: anywhere; font-size: clamp(32px, 3.2vw, 48px); font-weight: 650; line-height: 1.12; letter-spacing: -.05em; }
+.description { max-width: 540px; margin: 14px 0 0; color: var(--nova-text); font-size: 15px; line-height: 1.7; }
+.createButton { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 8px; min-height: 44px; padding: 11px 18px; border: 1px solid transparent; border-radius: 12px; background: var(--nova-primary); color: #fff; font-size: 13px; font-weight: 600; line-height: 1.5; white-space: nowrap; cursor: pointer; transition: background-color .2s; }
+.createButton:hover { background: var(--nova-primary-hover); }
+.createButton:focus-visible { outline: 3px solid var(--nova-primary); outline-offset: 4px; }
+.createButton>svg { flex-shrink: 0; width: 17px; height: 17px; color: currentColor; }
+@media (max-width: 1100px) {
+  .intro { padding: 28px; gap: 24px; }
+  .description { max-width: 440px; }
+}
+@media (max-width: 960px) {
+  .intro { align-items: flex-start; flex-direction: column; min-height: 0; }
+}
+@media (max-width: 600px) {
+  .intro { gap: 24px; margin-bottom: 24px; padding: 24px 20px; border-radius: 22px; }
+  .intro::before { background-image: linear-gradient(105deg, #f1edf9f5, #f1edf9c9), url('/images/landing-landscape.jpg'); }
+  .intro h1 { font-size: 32px; }
+  .description { font-size: 14px; }
+  .createButton { gap: 7px; padding-inline: 14px; font-size: 12px; }
+}

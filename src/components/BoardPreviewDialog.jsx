@@ -5,7 +5,7 @@ import Icon from './BoardIcon';
 import styles from '../styles/boardPreviewDialog.module.css';
 
 const boundedPan = (pan, zoom) => ({ x: Math.max(-500 * (zoom - 1), Math.min(500 * (zoom - 1), pan.x)), y: Math.max(-250 * (zoom - 1), Math.min(250 * (zoom - 1), pan.y)) });
-export default function BoardPreviewDialog({ board, title, onClose }) {
+export default function BoardPreviewDialog({ board, title, onClose, onUseTemplate }) {
   const ref = useRef(null), drag = useRef(null), titleId = useId();
   const [view, setView] = useState({ zoom: 1, pan: { x: 0, y: 0 } });
   const changeZoom = delta => setView(current => {
@@ -47,6 +47,6 @@ export default function BoardPreviewDialog({ board, title, onClose }) {
       onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onLostPointerCapture={() => { drag.current = null; }}>
       <BoardPreview board={board} title={title} detailed accessible zoom={view.zoom} pan={view.pan}/>
     </div>
-    <footer><span>Preview only</span><div role="group" aria-label="Preview zoom"><button disabled={view.zoom <= 1} onClick={() => changeZoom(-.25)} aria-label="Zoom preview out">−</button><output aria-live="polite">{Math.round(view.zoom * 100)}%</output><button disabled={view.zoom >= 4} onClick={() => changeZoom(.25)} aria-label="Zoom preview in">+</button><button onClick={fit}><Icon name="fit" size={17}/>Fit</button></div></footer>
+    <footer>{onUseTemplate ? <button className={styles.useTemplate} onClick={onUseTemplate}>Use template<Icon name="forward" size={16}/></button> : <span>Preview only</span>}<div role="group" aria-label="Preview zoom"><button disabled={view.zoom <= 1} onClick={() => changeZoom(-.25)} aria-label="Zoom preview out">−</button><output aria-live="polite">{Math.round(view.zoom * 100)}%</output><button disabled={view.zoom >= 4} onClick={() => changeZoom(.25)} aria-label="Zoom preview in">+</button><button onClick={fit}><Icon name="fit" size={17}/>Fit</button></div></footer>
   </dialog>, document.body);
 }

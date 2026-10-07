@@ -55,10 +55,10 @@ function normalizeProject(project) {
   const now = Date.now();
   return {
     accent: "violet",
-    created: project.created || project.updated || now,
+    created: project.created ?? project.updated ?? now,
     ...project,
     ...(project.board ? { board: { ...project.board, nodes: project.board.nodes.map(node => node.content ? { ...node, content: normalizeCellContent(node.content) } : node) } } : {}),
-    updated: project.updated || now,
+    updated: project.updated ?? now,
     schemaVersion: 1,
   };
 }
@@ -110,6 +110,8 @@ export async function initializeWorkspace(starterProjects = []) {
       if (!existing.length && !previouslyOpened) starterProjects.forEach(project => store.put({ ...normalizeProject(project), storageRevision: 1 }));
       meta.put({ key: "workspaceInitialized", value: true });
     }
+    const savedFolders = await requestResult(meta.get('folders'));
+    meta.put({ key: 'folders', value: collectFolders(savedFolders?.value, existing.length ? existing : (!seeded?.value && !previouslyOpened ? starterProjects : [])) });
     await completed;
   } catch (error) {
     try { transaction.abort(); } catch { /* Already aborted. */ }
@@ -129,6 +131,46 @@ export async function listProjects({ includeDeleted = false } = {}) {
   return projects
     .filter(project => includeDeleted || !project.deletedAt)
     .sort((a, b) => b.updated - a.updated);
+}
+
+const collectFolders = (saved = [], projects = []) => [...new Set([...saved, ...projects.map(project => project.folder)].filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+export async function listWorkspaceFolders() {
+  const database = await openWorkspace();
+  const transaction = database.transaction([PROJECTS, META], 'readonly');
+  const [saved, projects] = await Promise.all([requestResult(transaction.objectStore(META).get('folders')), requestResult(transaction.objectStore(PROJECTS).getAll())]);
+  return collectFolders(saved?.value, projects);
+}
+
+// Folder changes and their project memberships commit together, including Trash.
+export async function changeWorkspaceFolder(action, name, nextName = '') {
+  if (!['create', 'rename', 'remove'].includes(action)) throw new Error('Unknown folder action.');
+  const target = (action === 'create' ? name : nextName).trim();
+  if (action !== 'remove' && (!target || target.length > 180)) throw new Error('Use a folder name between 1 and 180 characters.');
+  const database = await openWorkspace();
+  const transaction = database.transaction([PROJECTS, META], 'readwrite');
+  const completed = transactionDone(transaction);
+  try {
+    const store = transaction.objectStore(PROJECTS), meta = transaction.objectStore(META);
+    const [saved, projects] = await Promise.all([requestResult(meta.get('folders')), requestResult(store.getAll())]);
+    const existing = collectFolders(saved?.value, projects);
+    if (action !== 'create' && !existing.includes(name)) throw new Error('This folder no longer exists. Refresh your workspace.');
+    if (action !== 'remove' && existing.some(folder => (action === 'create' || folder !== name) && folder.toLocaleLowerCase() === target.toLocaleLowerCase())) throw new Error('A folder with this name already exists. Choose another name.');
+    const folders = collectFolders([...(action === 'create' ? existing : existing.filter(folder => folder !== name)), ...(action === 'remove' ? [] : [target])]);
+    const next = projects.map(project => {
+      if (action === 'create' || project.folder !== name) return project;
+      const changed = { ...project, folder: action === 'remove' ? '' : target, storageRevision: (project.storageRevision || 0) + 1 };
+      store.put(changed);
+      return changed;
+    });
+    meta.put({ key: 'folders', value: folders });
+    await completed;
+    return { folders, projects: next };
+  } catch (error) {
+    try { transaction.abort(); } catch { /* Already completed or aborted. */ }
+    await completed.catch(() => {});
+    throw error;
+  }
 }
 
 async function trimVersions(database, projectId) {
@@ -177,12 +219,15 @@ export async function putProject(project, { snapshot = true } = {}) {
 // One transaction commits the complete selection or leaves all projects unchanged.
 export async function applyProjectBatch(ids, action, value = '') {
   const database = await openWorkspace();
-  const transaction = database.transaction(PROJECTS, 'readwrite');
+  const transaction = database.transaction([PROJECTS, META], 'readwrite');
   const store = transaction.objectStore(PROJECTS);
   const completed = transactionDone(transaction);
   try {
     const projects = await requestResult(store.getAll());
     const changed = projectBatchChanges(projects, ids, action, value).map(project => ({ ...project, storageRevision: (project.storageRevision || 0) + 1 }));
+    const meta = transaction.objectStore(META);
+    const saved = await requestResult(meta.get('folders'));
+    meta.put({ key: 'folders', value: collectFolders(saved?.value, [...projects, ...changed]) });
     changed.forEach(project => store.put(project));
     await completed;
     return changed;
@@ -280,13 +325,30 @@ export function exportProjectFile(project) {
   downloadJson(payload, `${project.title.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-|-$/g, "") || "untitled"}${backupFiles.projectExtension}`);
 }
 
-export async function exportWorkspaceFile(projects) {
+export async function readWorkspaceBackup() {
   const database = await openWorkspace();
-  const transaction = database.transaction(VERSIONS, "readonly");
-  const versions = await requestResult(transaction.objectStore(VERSIONS).getAll());
-  const shapeLibrary = (await readMeta("shapeLibrary"))?.value || [];
-  const payload = { format: "nova-workspace", version: 1, exportedAt: new Date().toISOString(), projects: projects.map(normalizeProject), versions, shapeLibrary };
+  // Read all stores in one transaction: a different tab may have created,
+  // changed, or deleted projects since this tab last loaded its project list.
+  const transaction = database.transaction([PROJECTS, VERSIONS, META], "readonly");
+  const [projects, versions, library, savedFolders] = await Promise.all([
+    requestResult(transaction.objectStore(PROJECTS).getAll()),
+    requestResult(transaction.objectStore(VERSIONS).getAll()),
+    requestResult(transaction.objectStore(META).get("shapeLibrary")),
+    requestResult(transaction.objectStore(META).get('folders')),
+  ]);
+  const shapeLibrary = library?.value || [];
+  const payload = { format: "nova-workspace", version: 1, exportedAt: new Date().toISOString(), projects: projects.map(normalizeProject), versions, shapeLibrary, folders: collectFolders(savedFolders?.value, projects) };
+  try { prepareWorkspaceImport(payload); }
+  catch { throw new Error("This workspace contains invalid data. A restorable backup could not be created."); }
+  return payload;
+}
+
+export function downloadWorkspaceBackup(payload) {
   downloadJson(payload, `${brand.slug}-workspace-${new Date().toISOString().slice(0, 10)}${backupFiles.workspaceExtension}`, "application/x-nova-workspace+json");
+}
+
+export async function exportWorkspaceFile() {
+  downloadWorkspaceBackup(await readWorkspaceBackup());
 }
 
 export async function exportProjectSelection(projects) {
@@ -297,20 +359,32 @@ export async function exportProjectSelection(projects) {
 }
 
 export async function importNovaFile(file) {
-  const prepared = prepareWorkspaceImport(JSON.parse(await file.text()));
+  return importWorkspacePayload(JSON.parse(await file.text()));
+}
+
+export async function importWorkspacePayload(payload) {
+  const prepared = prepareWorkspaceImport(payload);
   const database = await openWorkspace();
   const transaction = database.transaction([PROJECTS, VERSIONS, META], "readwrite");
   const completed = transactionDone(transaction);
   try {
     const meta = transaction.objectStore(META);
     const existing = (await requestResult(meta.get("shapeLibrary")))?.value || [];
+    const [savedFolders, existingProjects] = await Promise.all([requestResult(meta.get('folders')), requestResult(transaction.objectStore(PROJECTS).getAll())]);
     prepared.projects.forEach(project => transaction.objectStore(PROJECTS).add(normalizeProject(project)));
     prepared.versions.forEach(version => transaction.objectStore(VERSIONS).add(version));
     if (prepared.shapeLibrary.length) {
-      const ids = new Set(prepared.shapeLibrary.map(item => item.id));
-      meta.put({ key: "shapeLibrary", value: [...prepared.shapeLibrary, ...existing.filter(item => !ids.has(item.id))] });
+      const ids = new Set(existing.map(item => item.id));
+      const imported = prepared.shapeLibrary.map(item => {
+        let id = item.id;
+        while (ids.has(id)) id = `library-${crypto.randomUUID()}`;
+        ids.add(id);
+        return { ...item, id };
+      });
+      meta.put({ key: "shapeLibrary", value: [...imported, ...existing] });
     }
     meta.put({ key: "workspaceInitialized", value: true });
+    meta.put({ key: 'folders', value: collectFolders([...(savedFolders?.value || []), ...prepared.folders], [...existingProjects, ...prepared.projects]) });
     await completed;
   } catch (error) {
     try { transaction.abort(); } catch { /* Already aborted. */ }

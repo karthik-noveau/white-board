@@ -33,17 +33,20 @@ function externalHash(value, encoding = "gzip") {
   return `#v1.${encoding}.${(encoding === "gzip" ? gzipSync(bytes) : bytes).toString("base64url")}`;
 }
 const envelope = value => ({ format: "nova-share", version: 1, project: value });
+const allContent = { includeHidden: true, includeSavedViews: true };
+const sharedProject = structuredClone(project);
+delete sharedProject.board.nodes[2].presenterNote;
 
-test("share URL carries the complete board independently of sender storage", async () => {
+test("share URL carries opted-in board content independently of sender storage", async () => {
   const before = structuredClone(project);
-  const link = await createShareUrl(project, "https://nova.example/boards/sender-board?old=1#ignored");
+  const link = await createShareUrl(project, "https://nova.example/boards/sender-board?old=1#ignored", allContent);
   const url = new URL(link);
   assert.equal(url.origin, "https://nova.example");
   assert.equal(url.pathname, "/share");
   assert.equal(url.search, "");
   assert.match(url.hash, /^#v2\.gzip\.[A-Za-z0-9_-]+$/);
   assert.ok(url.hash.length < Buffer.byteLength(JSON.stringify(project)));
-  assert.deepEqual(await readShareHash(url.hash), project);
+  assert.deepEqual(await readShareHash(url.hash), sharedProject);
   assert.deepEqual(project, before);
 });
 
@@ -56,10 +59,10 @@ test("every board template survives sharing without losing its geometry or style
 
 test("share access travels with the snapshot while legacy links remain editable", async () => {
   for (const access of ["readonly", "editable"]) {
-    const url = new URL(await createShareUrl(project, "https://nova.example", { access }));
+    const url = new URL(await createShareUrl(project, "https://nova.example", { access, ...allContent }));
     const decoded = await readShareLink(url.hash);
     assert.equal(decoded.access, access);
-    assert.deepEqual(decoded.project, project);
+    assert.deepEqual(decoded.project, sharedProject);
     assert.match(url.hash, /^#v2\./);
   }
   assert.equal((await readShareLink(externalHash(envelope(project)))).access, "editable");
@@ -80,11 +83,11 @@ test("independently encoded compressed and plain links load Unicode and all boar
 
 test("link is an immutable snapshot even when the sender edits during compression", async () => {
   const mutable = structuredClone(project);
-  const pending = createShareUrl(mutable, "https://nova.example");
+  const pending = createShareUrl(mutable, "https://nova.example", allContent);
   mutable.board.nodes[0].title = "Later edit";
   mutable.title = "Renamed later";
   const restored = await readShareHash(new URL(await pending).hash);
-  assert.deepEqual(restored, project);
+  assert.deepEqual(restored, sharedProject);
 });
 
 test("recipient gets a separate editable copy without replacing the sender or another local board", async () => {
@@ -130,6 +133,8 @@ test("invalid board records and dangling connections cannot reach the canvas", a
     value => { value.board.viewport.scale = 0; },
     value => { value.board.goals[0].nodeIds = 9; },
     value => { value.title = {}; },
+    value => { value.created = 1e20; },
+    value => { value.updated = -1e20; },
   ];
   for (const change of changes) {
     const invalid = structuredClone(project);
@@ -157,13 +162,55 @@ test("localhost links are clearly distinguished from public deployment links", (
 });
 
 
-test("full saved views survive sharing and restoring with all nested content", async () => {
+test("opted-in saved views retain nested content while excluding private notes", async () => {
   const source = structuredClone(project);
   const saved = createSavedView(source.board, source.board.viewport, "Full board", "snapshot", 5000);
   source.board.savedViews.push(saved);
-  const received = await readShareHash(new URL(await createShareUrl(source, "https://nova.example")).hash);
-  assert.deepEqual(received, source);
-  assert.deepEqual(received.board.savedViews[1].board.nodes, saved.board.nodes);
+  const received = await readShareHash(new URL(await createShareUrl(source, "https://nova.example", allContent)).hash);
+  const expected = structuredClone(source);
+  delete expected.board.nodes[2].presenterNote;
+  delete expected.board.savedViews[1].board.nodes[2].presenterNote;
+  assert.deepEqual(received, expected);
+  assert.equal(saved.board.nodes[2].presenterNote, 'Talk about this', 'owner notes remain unchanged');
+});
+
+test('both share modes default to current, non-hidden content without private notes', async () => {
+  const source = structuredClone(project);
+  source.board.nodes.push(
+    { id: 'private-frame', kind: 'frame', x: 0, y: 0, hidden: true, title: 'Hidden frame' },
+    { id: 'nested-frame', kind: 'frame', x: 0, y: 0, frameId: 'private-frame' },
+    { id: 'nested-card', x: 0, y: 0, frameId: 'nested-frame', note: 'Hidden frame content' },
+    { id: 'collapsed-child', x: 0, y: 0, title: 'Expandable content' },
+  );
+  source.board.edges.push({ id: 'collapsed-edge', from: 1, to: 'collapsed-child' });
+  source.board.activeTimer.nodeId = 2;
+  source.board.savedViews.push(createSavedView(source.board, source.board.viewport, 'Old sensitive content'));
+  const before = structuredClone(source);
+  for (const access of ['readonly', 'editable']) {
+    const received = await readShareLink(new URL(await createShareUrl(source, 'https://nova.example', { access })).hash);
+    const board = received.project.board;
+    assert.equal(received.access, access);
+    assert.deepEqual(board.nodes.map(node => node.id), [1, 3, 'collapsed-child']);
+    assert.deepEqual(board.edges.map(edge => edge.id), ['collapsed-edge']);
+    assert.deepEqual(board.goals[0].nodeIds, [1]);
+    assert.equal(board.activeTimer, null);
+    assert.equal(board.savedViews, undefined);
+    assert.ok(board.nodes.every(node => !Object.hasOwn(node, 'presenterNote')));
+    assert.ok(!JSON.stringify(received).includes('Old sensitive content'));
+  }
+  assert.deepEqual(source, before);
+});
+
+test('sharing hidden cards and saved snapshots are independent opt-ins', async () => {
+  const source = structuredClone(project);
+  source.board.savedViews.push(createSavedView(source.board, source.board.viewport, 'Earlier version'));
+  for (const includeHidden of [false, true]) for (const includeSavedViews of [false, true]) {
+    const received = await readShareHash(new URL(await createShareUrl(source, 'https://nova.example', { includeHidden, includeSavedViews })).hash);
+    assert.equal(received.board.nodes.some(node => node.id === 2), includeHidden);
+    assert.equal(Boolean(received.board.savedViews), includeSavedViews);
+    if (includeSavedViews) assert.equal(received.board.savedViews[1].board.nodes.some(node => node.id === 2), includeHidden);
+    assert.ok(!JSON.stringify(received).includes('Talk about this'));
+  }
 });
 
 test("invalid and recursively nested saved snapshots are rejected on shared boards", async () => {

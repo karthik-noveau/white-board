@@ -1,14 +1,17 @@
-import { backupFiles } from "../lib/brand";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useParams, useSearchParams } from "react-router";
 import { boardPath, workspaceTemplatesPath } from "../lib/routes";
 import usePageTitle from "../lib/usePageTitle";
 import { readWorkspacePreferences, saveWorkspacePreferences } from "../lib/workspacePreferences";
+import { projectUpdatedLabel } from "../lib/projectDates";
 import useDeleteConfirmation from "../lib/useDeleteConfirmation";
 import Icon from "./BoardIcon";
 import MotionPresence from "./MotionPresence";
 import BoardPreview from "./BoardPreview";
 import TextInputDialog from "./TextInputDialog";
+import ShareBoard from "./ShareBoard";
+import WorkspaceFolders from "./WorkspaceFolders";
+import WorkspacePageIntro, { WorkspaceCreateButton } from "./WorkspacePageIntro";
 import styles from "../styles/home.module.css";
 
 function Dialog({ title, description, onClose, children }) {
@@ -39,14 +42,11 @@ function ProjectEditDialog({ project, mode, onClose, onRename, onMoveFolder }) {
 }
 
 function updatedLabel(project, trash) {
-  const date = trash ? project.deletedAt : project.updated;
-  const days = Math.round((date - Date.now()) / 86400000);
-  const relative = Math.abs(days) < 7 ? new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(days, "day") : new Intl.DateTimeFormat("en", { month: "short", day: "numeric", ...(new Date(date).getFullYear() !== new Date().getFullYear() ? { year: "numeric" } : {}) }).format(date);
-  return `${trash ? "Deleted" : "Edited"} ${relative}`;
+  return projectUpdatedLabel(project, trash);
 }
 
-function ProjectCard({ project, returnTo, onDelete, onDuplicate, onRename, onFavorite, onMoveFolder, onExport, trash, onRestore, onDeleteForever, selectionMode, selectionDisabled, selected, onToggle }) {
-  const [menuOpen, setMenuOpen] = useState(false), [editMode, setEditMode] = useState(null);
+function ProjectCard({ project, returnTo, onDelete, onDuplicate, onRename, onFavorite, onMoveFolder, folders, onExport, trash, onRestore, onDeleteForever, selectionMode, selectionDisabled, selected, onToggle }) {
+  const [menuOpen, setMenuOpen] = useState(false), [editMode, setEditMode] = useState(null), [shareProject, setShareProject] = useState(null);
   const menuRef = useRef(null), triggerRef = useRef(null), menuId = useId();
   useEffect(() => {
     if (!menuOpen) return;
@@ -74,18 +74,22 @@ function ProjectCard({ project, returnTo, onDelete, onDuplicate, onRename, onFav
               <button onClick={() => action(() => setEditMode("rename"))}><Icon name="edit"/>Rename project</button>
               <button onClick={() => action(() => setEditMode("folder"))}><Icon name="folder"/>Move to folder</button>
               <button onClick={() => action(() => onDuplicate(project.id))}><Icon name="duplicate"/>Duplicate project</button>
+              <button onClick={() => action(() => setShareProject(structuredClone(project)))}><Icon name="share"/>Share project</button>
               <button onClick={() => action(() => onExport(project))}><Icon name="download"/>Export project</button>
+              <span className={styles.cardMenuDivider} aria-hidden="true"/>
               <button className={styles.dangerAction} onClick={() => action(() => onDelete(project.id))}><Icon name="trash"/>Move to trash</button>
             </>}
           </nav></MotionPresence>
         </div>
       </div>}
     </div>
-    <MotionPresence present={Boolean(editMode)}><ProjectEditDialog project={project} mode={editMode} onClose={() => { setEditMode(null); triggerRef.current?.focus(); }} onRename={onRename} onMoveFolder={onMoveFolder}/></MotionPresence>
+    <MotionPresence present={editMode === "rename"}><ProjectEditDialog project={project} mode={editMode} onClose={() => { setEditMode(null); triggerRef.current?.focus(); }} onRename={onRename} onMoveFolder={onMoveFolder}/></MotionPresence>
+    {editMode === "folder" && <TextInputDialog title="Move to folder" description="Choose an existing folder, type a new name, or leave it empty to keep the project outside folders." label="Folder name" initialValue={project.folder || ""} suggestions={folders} allowEmpty confirmLabel="Move project" fallbackFocus={triggerRef.current} onConfirm={value => onMoveFolder(project.id, value)} onClose={() => setEditMode(null)}/>}
+    {shareProject && <ShareBoard project={shareProject} onClose={() => setShareProject(null)} onBackup={() => onExport(shareProject)}/>}
   </article>;
 }
 
-export default function Home({ projects, deletedProjects, storageError, onDismissError, onCreate, onDelete, onRestore, onDeleteForever, onDuplicate, onRename, onFavorite, onMoveFolder, onExport, onImport, onBatchAction, section = "projects" }) {
+export default function Home({ projects, deletedProjects, storageError, onDismissError, onCreate, onDelete, onRestore, onDeleteForever, onDuplicate, onRename, onFavorite, onMoveFolder, onExport, onBatchAction, folders: savedFolders = [], onManageFolder, section = "projects" }) {
   const [requestDelete, deleteConfirmation] = useDeleteConfirmation();
   const projectsHeading = useRef(null);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -100,8 +104,7 @@ export default function Home({ projects, deletedProjects, storageError, onDismis
   const setView = view => setPreferences(current => ({ ...current, view }));
   useEffect(() => { saveWorkspacePreferences(preferences); }, [preferences]);
   const gallery = searchParams.get("templates") === "1";
-  const fileInput = useRef(null);
-  const folders = useMemo(() => [...new Set(projects.map(project => project.folder).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [projects]);
+  const folders = useMemo(() => [...new Set([...savedFolders, ...projects.map(project => project.folder)].filter(Boolean))].sort((a, b) => a.localeCompare(b)), [projects, savedFolders]);
   const visibleProjects = section === "trash" ? deletedProjects : section === "favorites" ? projects.filter(project => project.favorite) : section === "folder" ? projects.filter(project => project.folder === folderName) : projects;
   const filtered = visibleProjects.filter(project => [project.title, project.folder, ...(project.board?.nodes || []).flatMap(node => [node.title, node.note])].filter(Boolean).join(" ").toLowerCase().includes(query.trim().toLowerCase())).sort((a, b) => sort === "name" ? a.title.localeCompare(b.title) : sort === "oldest" ? a.updated - b.updated : b.updated - a.updated);
   const selectionScope = `${location.pathname}?${query}`;
@@ -167,9 +170,9 @@ export default function Home({ projects, deletedProjects, storageError, onDismis
   if (gallery) return <Navigate to={`${workspaceTemplatesPath}${searchParams.get("template") ? `?template=${encodeURIComponent(searchParams.get("template"))}` : ""}`} replace/>;
   return <>
       <main id="workspace-content" className={styles.main}>
-        <header className={styles.pageHeader}><div><p className={styles.eyebrow}><span/>YOUR WORKSPACE</p><h1>{sectionTitle}<span>.</span></h1><p className={styles.subtitle}>{description}</p></div><div className={styles.homeActions}><button className={styles.secondaryButton} onClick={() => fileInput.current?.click()}><Icon name="upload" size={17}/>Import</button><button className={styles.primaryButton} aria-label="New mind map" onClick={() => onCreate()}><Icon name="plus" size={18}/>New mind map</button></div></header>
+        <WorkspacePageIntro title={sectionTitle} description={description}/>
         {storageError && <div className={styles.storageError} role="alert"><span>{storageError}</span><button onClick={onDismissError}>Dismiss</button></div>}
-        <input ref={fileInput} className={styles.fileInput} type="file" accept={backupFiles.accept} onChange={event => { const file = event.target.files?.[0]; if (file) onImport(file); event.target.value = ""; }}/>
+        {(section === "projects" || section === "folder") && <WorkspaceFolders key={folderName || "all"} folders={folders} projects={projects} currentFolder={section === "folder" ? folderName : undefined} onManageFolder={onManageFolder}/>}
         <section className={styles.projects} aria-labelledby="projects-title">
           <div className={styles.projectToolbar}>
             <div className={styles.projectHeading}>
@@ -191,6 +194,7 @@ export default function Home({ projects, deletedProjects, storageError, onDismis
 
               </div>
             </div>
+            {section === "projects" && <WorkspaceCreateButton aria-label="New mind map" onClick={() => onCreate()}><Icon name="plus" size={17}/>New mind map</WorkspaceCreateButton>}
           </div>
           {selectionMode && <div className={styles.batchToolbar} role="group" aria-label="Selected project actions" aria-busy={batchBusy}>
             <label><input type="checkbox" checked={allSelected} ref={element => { if (element) element.indeterminate = selectedIds.length > 0 && !allSelected; }} disabled={batchBusy} onChange={() => setSelection({ scope: selectionScope, active: true, ids: allSelected ? [] : filtered.map(project => project.id) })}/>Select all visible</label>
@@ -204,9 +208,8 @@ export default function Home({ projects, deletedProjects, storageError, onDismis
           </div>}
           {batchNotice && <p className={styles.batchNotice} role="status">{batchNotice}</p>}
           {batchError && <p className={styles.batchError} role="alert">{batchError}</p>}
-          {filtered.length ? <div className={`${styles.projectGrid} ${view === "list" ? styles.projectList : ""}`}>{filtered.map(project => <ProjectCard key={project.id} project={project} selectionMode={selectionMode} selectionDisabled={batchBusy} selected={selectedIds.includes(project.id)} onToggle={() => { if (!batchBusy) toggleProject(project.id); }} trash={section === "trash"} returnTo={location.pathname + location.search} onDelete={id => confirmProjectDelete(id)} onRestore={onRestore} onDeleteForever={id => confirmProjectDelete(id, true)} onDuplicate={onDuplicate} onRename={onRename} onFavorite={onFavorite} onMoveFolder={onMoveFolder} onExport={onExport}/>)}</div> : <div className={styles.empty}><span className={styles.emptyIcon}><Icon name={query ? "search" : section === "trash" ? "trash" : section === "favorites" ? "star" : "layout"} size={28}/></span><h3>{query ? "No matching ideas yet" : section === "trash" ? "Nothing in the trash" : section === "favorites" ? "Keep your best ideas close" : "Your next idea starts here"}</h3><p>{query ? "Try a different name, folder, or word from your board." : section === "trash" ? "Projects you delete will appear here, ready to restore." : section === "favorites" ? "Star a project and you’ll find it right here." : "Create a mind map and see where it takes you."}</p>{query ? <button className={styles.secondaryButton} onClick={() => setQuery("")}>Clear search</button> : section === "projects" ? <button className={styles.primaryButton} onClick={() => onCreate()}><Icon name="plus"/>Create your first map</button> : section === "favorites" ? <Link className={styles.secondaryButton} to="/projects">Explore your projects<Icon name="forward" size={16}/></Link> : null}</div>}
+          {filtered.length ? <div className={`${styles.projectGrid} ${view === "list" ? styles.projectList : ""}`}>{filtered.map(project => <ProjectCard key={project.id} project={project} selectionMode={selectionMode} selectionDisabled={batchBusy} selected={selectedIds.includes(project.id)} onToggle={() => { if (!batchBusy) toggleProject(project.id); }} trash={section === "trash"} returnTo={location.pathname + location.search} onDelete={id => confirmProjectDelete(id)} onRestore={onRestore} onDeleteForever={id => confirmProjectDelete(id, true)} onDuplicate={onDuplicate} onRename={onRename} onFavorite={onFavorite} onMoveFolder={onMoveFolder} folders={folders} onExport={onExport}/>)}</div> : <div className={styles.empty}><span className={styles.emptyIcon}><Icon name={query ? "search" : section === "trash" ? "trash" : section === "favorites" ? "star" : "newBoard"} size={28}/></span><h3>{query ? "No matching ideas yet" : section === "trash" ? "Nothing in the trash" : section === "favorites" ? "Keep your best ideas close" : section === "folder" ? "This folder is ready for your ideas" : "Your next idea starts here"}</h3><p>{query ? "Try a different name, folder, or word from your board." : section === "trash" ? "Projects you delete will appear here, ready to restore." : section === "favorites" ? "Star a project and you’ll find it right here." : section === "folder" ? "Move projects here using Move to folder in a project’s menu." : "Create a mind map and see where it takes you."}</p>{query ? <button className={styles.secondaryButton} onClick={() => setQuery("")}>Clear search</button> : section === "projects" ? <button className={styles.primaryButton} onClick={() => onCreate()}><Icon name="plus"/>Create your first map</button> : section === "favorites" || section === "folder" ? <Link className={styles.secondaryButton} to="/projects">Explore your projects<Icon name="forward" size={16}/></Link> : null}</div>}
         </section>
-        <footer className={styles.workspaceFooter}><span><Icon name="lock" size={14}/>Your ideas stay yours. Saved only on this device.</span><span>Made for a little more clarity.<Icon name="spark" size={16}/></span></footer>
       </main>
     {movingIds && <TextInputDialog title={`Move ${movingIds.length} ${movingIds.length === 1 ? 'project' : 'projects'}`} description="Choose a folder, enter a new name, or leave it empty to remove the folder." label="Folder name" allowEmpty suggestions={folders} confirmLabel="Move projects" fallbackFocus={projectsHeading.current} onConfirm={value => runBatch(movingIds, 'move', value, true)} onClose={() => setMovingIds(null)}/>}
     {deleteConfirmation}

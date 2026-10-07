@@ -2,6 +2,7 @@ import { brand } from "../lib/brand";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { applyAutomations } from "../lib/boardAutomations";
 import { CARD_MIME, readCardPayload, cardsFromClipboard } from "../lib/cardClipboard";
+import { duplicateBoardSelection } from "../lib/duplicateBoardSelection";
 import VersionPreview from "./VersionPreview";
 import { boardEdgeData, inferConnectionSide } from "../lib/boardGeometry";
 import { closestLabelPosition, connectionLabelPoint, connectionLabelPlacement } from "../lib/connectionLabels";
@@ -830,7 +831,13 @@ export default function Canvas({project,backTo="/projects",onRename,onSave,onSav
     }
     setSelectedEdge(null);setSelectedId(null);setSelectedIds([]);
   },[checkpoint,nodes,notify,selectedEdge,selectedIds]);
-  const duplicate=()=>{if(editingBlocked.current)return;if(!selectedIds.length)return;checkpoint();const chosen=new Set(selectedIds),idMap=new Map(),groupMap=new Map();selectedIds.forEach(id=>idMap.set(id,nextNode.current++));const copies=nodes.filter(node=>chosen.has(node.id)).map(node=>{let groupId=node.groupId;if(groupId){if(!groupMap.has(groupId))groupMap.set(groupId,`group-${Date.now()}-${groupMap.size}`);groupId=groupMap.get(groupId)}return{...node,id:idMap.get(node.id),groupId,x:node.x+35,y:node.y+35,root:false}});const copiedEdges=edges.filter(edge=>chosen.has(edge.from)&&chosen.has(edge.to)).map(edge=>({...edge,id:nextEdge.current++,from:idMap.get(edge.from),to:idMap.get(edge.to)}));const ids=copies.map(node=>node.id);setNodes(items=>[...items,...copies]);setEdges(items=>[...items,...copiedEdges]);setSelectedIds(ids);setSelectedId(ids.at(-1)||null)};
+  const duplicate=()=>{
+    if(editingBlocked.current||!selectedIds.length)return;
+    checkpoint();
+    const copies=duplicateBoardSelection(nodes,edges,selectedIds,()=>nextNode.current++,()=>nextEdge.current++);
+    setNodes(items=>[...items,...copies.nodes]);setEdges(items=>[...items,...copies.edges]);
+    setSelectedIds(copies.ids);setSelectedId(copies.ids.at(-1)??null);setSelectedEdge(null);
+  };
   const copySelection=useCallback((event)=>{if(!selectedIds.length)return false;const initiallyChosen=new Set(selectedIds),selectedFrames=new Set(nodes.filter(node=>initiallyChosen.has(node.id)&&node.kind==="frame").map(node=>node.id)),chosen=new Set([...selectedIds,...nodes.filter(node=>selectedFrames.has(node.frameId)).map(node=>node.id)]),copiedNodes=nodes.filter(node=>chosen.has(node.id));if(!copiedNodes.length)return false;const left=Math.min(...copiedNodes.map(node=>node.x)),top=Math.min(...copiedNodes.map(node=>node.y)),right=Math.max(...copiedNodes.map(node=>node.x+nodeSize(node).width)),bottom=Math.max(...copiedNodes.map(node=>node.y+nodeSize(node).height)),payload={version:1,width:right-left,height:bottom-top,nodes:copiedNodes.map(node=>({...node,x:node.x-left,y:node.y-top})),edges:edges.filter(edge=>chosen.has(edge.from)&&chosen.has(edge.to)).map(edge=>({...edge}))};try{localStorage.setItem(CLIPBOARD_KEY,JSON.stringify(payload));clearBlockClipboard();const plain=copiedNodes.map(node=>node.title||"Untitled card").join("\n");if(event?.clipboardData){event.clipboardData.setData('text/plain',plain);event.clipboardData.setData(CARD_MIME,JSON.stringify(payload))}else navigator.clipboard?.writeText(plain).catch(()=>{});pasteCount.current=0;notify(`${copiedNodes.length} ${copiedNodes.length===1?"shape":"shapes"} copied`);return true}catch{notify("Could not copy selection");return false}},[edges,nodes,notify,selectedIds]);
   const pasteSelection=useCallback((at=null,nativePayload=undefined)=>{if(editingBlocked.current)return;let payload=nativePayload;if(payload===undefined){try{payload=readCardPayload(localStorage.getItem(CLIPBOARD_KEY)||"")}catch{payload=null}}if(!payload?.nodes?.length){notify("Nothing to paste");return}checkpoint();pasteCount.current+=1;const idMap=new Map(),groupMap=new Map();payload.nodes.forEach(node=>idMap.set(node.id,nextNode.current++));const rect=stageRef.current?.getBoundingClientRect(),offset=Math.min(96,pasteCount.current*18),originX=at?.x??(((rect?.width||view.width)/2-transform.x)/transform.scale-(payload.width||0)/2+offset),originY=at?.y??(((rect?.height||view.height)/2-transform.y)/transform.scale-(payload.height||0)/2+offset);const copies=payload.nodes.map(node=>{let groupId=node.groupId;if(groupId){if(!groupMap.has(groupId))groupMap.set(groupId,`group-${Date.now()}-${groupMap.size}`);groupId=groupMap.get(groupId)}return{...node,id:idMap.get(node.id),x:Math.round(originX+node.x),y:Math.round(originY+node.y),groupId,frameId:idMap.get(node.frameId),root:false}}),copiedEdges=(payload.edges||[]).filter(edge=>idMap.has(edge.from)&&idMap.has(edge.to)).map(edge=>({...edge,id:nextEdge.current++,from:idMap.get(edge.from),to:idMap.get(edge.to)})),ids=copies.map(node=>node.id);setNodes(items=>[...items,...copies]);setEdges(items=>[...items,...copiedEdges]);setSelectedIds(ids);setSelectedId(ids.at(-1)||null);setSelectedEdge(null);notify(`${copies.length} ${copies.length===1?"shape":"shapes"} pasted`)},[checkpoint,notify,transform,view]);
   useEffect(()=>{
@@ -1275,11 +1282,11 @@ export default function Canvas({project,backTo="/projects",onRename,onSave,onSav
     resize();const observer=new ResizeObserver(resize);observer.observe(stage);
     return()=>observer.disconnect();
   },[]);
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     if(initialFitted.current)return;
     initialFitted.current=true;
-    // Fresh templates have no saved viewport: show the whole layout on first open.
-    if((project?.board&&!project.board.viewport)||window.matchMedia("(max-width: 760px), (max-height: 500px) and (pointer: coarse)").matches)fitItems(visibleNodes);
+    // New boards and templates have no saved viewport: center them before paint.
+    if(!project?.board?.viewport||window.matchMedia("(max-width: 760px), (max-height: 500px) and (pointer: coarse)").matches)fitItems(visibleNodes);
   },[fitItems,visibleNodes,project?.board]);
   useEffect(()=>{if(presenting||focusRootId===null)return;const animation=requestAnimationFrame(()=>fitItems(visibleNodesRef.current));return()=>cancelAnimationFrame(animation)},[fitItems,focusRootId,presenting]);
   useEffect(()=>{if(!presenting)return;const frame=presentationFrames[presentationIndex];const animation=requestAnimationFrame(()=>frame?fitItems([frame],1.3):fit());return()=>cancelAnimationFrame(animation)},[fit,fitItems,presentationFrames,presentationIndex,presenting]);

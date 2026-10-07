@@ -66,11 +66,11 @@ const { createRoot } = require('react-dom/client');
 const { renderToStaticMarkup } = require('react-dom/server');
 const { MemoryRouter } = require('react-router');
 
-async function loadComponent(entry) {
+async function loadComponent(entry, exportName = 'default') {
   const result = await build({ entryPoints: [entry], write: false, bundle: true, platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic', loader: { '.css': 'empty' }, define: { 'import.meta.env': '{}' }, logLevel: 'silent' });
   const module = { exports: {} };
   new Function('require', 'module', 'exports', result.outputFiles[0].text)(require, module, module.exports);
-  return module.exports.default;
+  return module.exports[exportName];
 }
 const BoardPreview = await loadComponent('src/components/BoardPreview.jsx');
 const Canvas = await loadComponent('src/components/Canvas.jsx');
@@ -82,9 +82,11 @@ test('homepage playground keeps edits across examples and carries them into a re
   try {
     await act(async () => { root.render(React.createElement(MemoryRouter, null, React.createElement(Landing, { onCreate: value => { created = value; } }))); });
     assert.equal(document.querySelector('iframe'), null);
-    const navigation = document.querySelector('[aria-label="Main navigation"]');
-    assert.equal(navigation.querySelector('a').getAttribute('href'), '/templates');
-    assert.equal(navigation.querySelectorAll('a[href^="#"]').length, 0);
+    for (const label of ['Main navigation', 'Mobile navigation']) {
+      const navigation = document.querySelector(`[aria-label="${label}"]`);
+      assert.deepEqual([...navigation.querySelectorAll('a')].map(link => link.getAttribute('href')), ['/templates']);
+    }
+    assert.equal(document.querySelectorAll('header a[href^="#"]').length, 0);
     const field = document.querySelector('[aria-label="Your starting idea"]');
     await act(async () => {
       Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(field, 'A calmer start to the day');
@@ -141,17 +143,80 @@ test('template navigation and previews never create projects; creation needs Use
     assert.doesNotMatch(document.body.textContent, /Complex templates|Simple templates/);
     assert.equal(sidebar.querySelector('a[href="/projects/templates"] small').textContent, '10');
     assert.equal(creations, 0);
-    assert.equal(document.querySelector('[data-template-id="weekly-plan"]').getAttribute('href'), '/projects/templates/weekly-plan');
+    const previewButton = document.querySelector('[data-template-id="weekly-plan"]');
+    assert.equal(previewButton.tagName, 'BUTTON');
+    previewButton.focus();
     await click(document.querySelector('[data-template-id="weekly-plan"]'));
-    assert.equal(document.querySelector('aside'), sidebar, 'template previews stay inside the workspace');
-    assert.equal(document.querySelectorAll('[aria-label="Related templates"] a').length, 3);
-    assert.ok([...document.querySelectorAll('[aria-label="Related templates"] a')].every(link => link.getAttribute('href').startsWith('/projects/templates/')));
-    await click(document.querySelector('[aria-label="Breadcrumb"] a[href="/projects/templates"]'));
-    assert.ok(document.querySelector('[data-template-id="weekly-plan"]'));
+    assert.equal(document.querySelector('aside'), sidebar, 'template previews keep the workspace mounted');
+    assert.equal(document.querySelector('dialog[open] h2').textContent, 'Weekly priorities');
+    assert.equal(document.querySelector('h1').textContent, 'Template library');
+    assert.equal(document.querySelectorAll('[data-template-id]').length, 10, 'the gallery stays mounted behind the popup');
+    assert.equal(document.querySelector('[data-template-detail]'), null);
+    await click(document.querySelector('[aria-label="Close enlarged preview"]'));
+    assert.equal(document.activeElement, previewButton, 'closing returns focus to the same gallery card');
     await click(document.querySelector('[data-template-id="weekly-plan"]'));
     assert.equal(creations, 0);
-    await click([...document.querySelectorAll('button')].find(button => button.textContent === 'Use template'));
+    await click([...document.querySelectorAll('dialog button')].find(button => button.textContent === 'Use template'));
     assert.equal(creations, 1);
+    await click(document.querySelector('[aria-label="Close enlarged preview"]'));
+    await click(document.querySelector('[aria-label="Use template: Project plan"]'));
+    assert.equal(creations, 2, 'a template can also be used directly from the gallery');
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('retired template detail and query links return to the correct gallery', async () => {
+  const TemplatePage = await loadComponent('src/components/TemplatePage.jsx');
+  const { Routes, Route, useLocation } = require('react-router');
+  function Location() { return React.createElement('output', { 'data-route': true }, useLocation().pathname); }
+  for (const library of ['/templates', '/projects/templates']) {
+    for (const suffix of ['/weekly-plan', '?template=weekly-plan']) {
+      const root = createRoot(document.getElementById('root'));
+      try {
+        const element = React.createElement(TemplatePage, { workspace: library.startsWith('/projects'), onCreate: () => assert.fail('navigation must not create a board') });
+        await act(async () => root.render(React.createElement(MemoryRouter, { initialEntries: [library + suffix] },
+          React.createElement(Location), React.createElement(Routes, null,
+            React.createElement(Route, { path: library, element }),
+            React.createElement(Route, { path: `${library}/:templateId`, element }),
+          ))));
+        assert.equal(document.querySelector('[data-route]').textContent, library);
+        assert.equal(document.querySelector('h1').textContent, 'Template library');
+        assert.equal(document.querySelectorAll('[data-template-id]').length, 10);
+        assert.equal(document.querySelector('dialog'), null);
+      } finally { await act(async () => root.unmount()); }
+    }
+  }
+});
+
+test('project menu shares the chosen board and returns focus without opening the editor', async () => {
+  const Home = await loadComponent('src/components/Home.jsx');
+  const { readShareLink } = await import('../src/lib/boardShare.js');
+  const project = { id: 'share-from-menu', title: 'Share this project', updated: 1000, board: {
+    nodes: [card(1, 'Visible idea', { presenterNote: 'Private note' }), card(2, 'Hidden idea', { hidden: true })], edges: [],
+  } };
+  const original = structuredClone(project);
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () => root.render(React.createElement(MemoryRouter, { initialEntries: ['/projects'] }, React.createElement(Home, {
+      projects: [project], deletedProjects: [], onExport: () => assert.fail('sharing should not export a file'),
+    }))));
+    const trigger = document.querySelector('[aria-label="More actions for Share this project"]');
+    await click(trigger);
+    await click([...document.querySelectorAll('nav button')].find(button => button.textContent === 'Share project'));
+    assert.equal(document.querySelector('dialog[open] header p').textContent, project.title);
+    assert.equal(trigger.getAttribute('aria-expanded'), 'false');
+    for (let attempt = 0; attempt < 30 && !document.getElementById('share-url')?.value; attempt++) {
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 10)); });
+    }
+    const result = await readShareLink(new URL(document.getElementById('share-url').value).hash);
+    assert.equal(result.project.title, project.title);
+    assert.equal(result.access, 'editable');
+    assert.deepEqual(result.project.board.nodes.map(node => node.id), [1]);
+    assert.equal(result.project.board.nodes[0].presenterNote, undefined);
+    assert.deepEqual(project, original);
+    assert.ok(document.querySelector('[aria-label="Search projects"]'), 'the project list stays mounted');
+    await click(document.querySelector('[aria-label="Close share dialog"]'));
+    assert.equal(document.querySelector('dialog[open]'), null);
+    assert.equal(document.activeElement, trigger);
   } finally { await act(async () => root.unmount()); }
 });
 
@@ -365,6 +430,74 @@ async function mountCanvas(extra = {}) {
 const click = async element => { assert.ok(element, 'element exists'); await act(async () => element.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }))); };
 const key = async (value, options = {}) => { await act(async () => window.dispatchEvent(new window.KeyboardEvent('keydown', { key: value, bubbles: true, cancelable: true, ...options }))); };
 
+test('new boards without a saved viewport open centered and fully visible', async () => {
+  const originalRect = HTMLElement.prototype.getBoundingClientRect;
+  try {
+    for (const [width, height] of [[1100, 700], [2100, 1100]]) {
+      HTMLElement.prototype.getBoundingClientRect = () => ({ x: 0, y: 0, top: 0, left: 0, width, height, right: width, bottom: height });
+      for (const board of [undefined, { nodes: [card(1, 'Starting idea')], edges: [] }]) {
+        const root = await mountCanvas({ project: { id: 'new-board', title: 'New board', board } });
+        try {
+          const nodes = [...document.querySelectorAll('[data-export-node]')];
+          const [panX, panY, scale] = nodes[0].parentElement.style.transform.match(/-?\d+(?:\.\d+)?/g).map(Number);
+          const bounds = nodes.map(node => {
+            const [x, y] = node.style.transform.match(/-?\d+(?:\.\d+)?/g).map(Number);
+            return { left: panX + x * scale, top: panY + y * scale,
+              right: panX + (x + parseFloat(node.style.width)) * scale,
+              bottom: panY + (y + parseFloat(node.style.height)) * scale };
+          });
+          const left = Math.min(...bounds.map(rect => rect.left)), right = Math.max(...bounds.map(rect => rect.right));
+          const top = Math.min(...bounds.map(rect => rect.top)), bottom = Math.max(...bounds.map(rect => rect.bottom));
+          assert.ok(Math.abs((left + right) / 2 - width / 2) <= 1, 'board is horizontally centered');
+          assert.ok(Math.abs((top + bottom) / 2 - height / 2) <= 1, 'board is vertically centered');
+          assert.ok(left >= 119 && right <= width - 119 && top >= 119 && bottom <= height - 119, 'every card fits inside the canvas controls');
+        } finally { await act(async () => root.unmount()); }
+      }
+    }
+  } finally { HTMLElement.prototype.getBoundingClientRect = originalRect; }
+});
+
+test('reopening a desktop board keeps its saved pan and zoom', async () => {
+  const root = await mountCanvas({ project: { id: 'saved-view', title: 'Saved view', board: {
+    nodes: [card(1, 'Off-center on purpose')], edges: [], viewport: { x: 84, y: -62, scale: .8 },
+  } } });
+  try {
+    assert.equal(document.querySelector('[data-export-node]').parentElement.style.transform, 'translate(84px,-62px) scale(0.8)');
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('duplicate control keeps copied cards in the copied frame through save and undo', async () => {
+  const saves = [];
+  const original = { nodes: [card(1, 'Frame', { kind: 'frame', w: 700, h: 450 }), card(2, 'Child', { frameId: 1 })], edges: [], viewport: { x: 0, y: 0, scale: 1 } };
+  const root = await mountCanvas({ project: { id: 'duplicate', title: 'Frame copy', board: original },
+    onSave: async (id, board) => { saves.push(structuredClone(board)); return { ok: true }; },
+  });
+  try {
+    document.querySelector('[aria-label="Board canvas"]').focus();
+    await key('a', { metaKey: true });
+    await click(document.querySelector('[aria-label="Duplicate"]'));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 400)); });
+    const board = saves.at(-1);
+    assert.equal(board.nodes.length, 4);
+    const frame = board.nodes.find(node => node.kind === 'frame' && node.id !== 1);
+    const child = board.nodes.find(node => node.kind !== 'frame' && node.id !== 2);
+    assert.equal(child.frameId, frame.id);
+    await click(document.querySelector('[aria-label="Undo"]'));
+    assert.equal(document.querySelectorAll('[data-export-node]').length, 2);
+    await click(document.querySelector('[aria-label="Redo"]'));
+    assert.equal(document.querySelectorAll('[data-export-node]').length, 4);
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('an older malformed date does not prevent opening the project list', async () => {
+  const Home = await loadComponent('src/components/Home.jsx');
+  const html = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(Home, {
+    projects: [{ id: 'bad-date', title: 'Recoverable board', updated: 1e20, board: { nodes: [], edges: [] } }], deletedProjects: [],
+  })));
+  assert.ok(html.includes('Edited date unavailable'));
+  assert.ok(html.includes('Open Recoverable board'));
+});
+
 test('locked canvas rejects Delete, Enter and child creation, then editing works after unlock', async () => {
   const root = await mountCanvas();
   try {
@@ -424,5 +557,55 @@ test('a mounted board with conflicting automations becomes idle and saves the or
     assert.ok(saves.length > 0 && saves.length < 3);
     assert.equal(saves.at(-1).nodes[0].status, 'todo');
     assert.equal(saves.at(-1).nodes[0].title, 'Original thought');
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('workspace transfer menus expose both file and URL actions and support keyboard dismissal', async () => {
+  const Actions = await loadComponent('src/components/WorkspaceFileActions.jsx');
+  const root = createRoot(document.getElementById('root')), calls = [];
+  try {
+    await act(async () => root.render(React.createElement(Actions, { onImport: () => calls.push('file-in'), onImportUrl: () => calls.push('url-in'), onBackup: () => calls.push('file-out'), onBackupUrl: () => calls.push('url-out') })));
+    for (const [label, first, second] of [['Import boards', 'file-in', 'url-in'], ['Back up workspace', 'file-out', 'url-out']]) {
+      const trigger = document.querySelector(`[aria-label="${label}"]`);
+      await click(trigger);
+      assert.equal(document.querySelectorAll('[role="menuitem"]').length, 2);
+      assert.equal(document.activeElement, document.querySelector('[role="menuitem"]'));
+      await act(async () => document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })));
+      assert.equal(document.activeElement, document.querySelectorAll('[role="menuitem"]')[1]);
+      await act(async () => document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+      assert.equal(document.querySelector('[role="menu"]'), null);
+      assert.equal(document.activeElement, trigger);
+      for (const [index, expected] of [[0, first], [1, second]]) {
+        await click(trigger); await click(document.querySelectorAll('[role="menuitem"]')[index]);
+        assert.equal(calls.at(-1), expected);
+        assert.equal(document.querySelector('[role="menu"]'), null);
+      }
+    }
+  } finally { await act(async () => root.unmount()); }
+});
+
+test('URL import previews without writes, keeps failures open, and prevents duplicate imports', async () => {
+  const ImportDialog = await loadComponent('src/components/WorkspaceTransferDialog.jsx', 'ImportWorkspaceUrlDialog');
+  const payload = { format: 'nova-workspace', version: 1, projects: [], folders: ['An empty folder'], shapeLibrary: [], versions: [] };
+  const initialUrl = 'https://example.com/projects/restore#workspace.v1.json.' + Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const root = createRoot(document.getElementById('root'));
+  let calls = 0, closed = 0, finish;
+  const onImport = async data => { assert.deepEqual(data, payload); calls++; if (calls === 1) throw new Error('Storage unavailable'); await new Promise(resolve => { finish = resolve; }); };
+  try {
+    await act(async () => root.render(React.createElement(ImportDialog, { initialUrl, onImport, onClose: () => closed++ })));
+    assert.equal(document.querySelector('dialog h2').textContent, 'Import workspace');
+    assert.equal(calls, 0); assert.equal(closed, 0);
+    const submit = () => [...document.querySelectorAll('dialog button')].find(button => button.textContent.startsWith('Import'));
+    await click(submit());
+    assert.match(document.querySelector('[role="alert"]').textContent, /Storage unavailable/);
+    assert.equal(closed, 0);
+    await click(submit());
+    assert.equal(submit().disabled, true);
+    await click(submit());
+    assert.equal(calls, 2);
+    await act(async () => document.querySelector('dialog').dispatchEvent(new window.Event('cancel', { cancelable: true })));
+    assert.equal(closed, 0);
+    await act(async () => finish());
+    assert.equal(closed, 1);
   } finally { await act(async () => root.unmount()); }
 });

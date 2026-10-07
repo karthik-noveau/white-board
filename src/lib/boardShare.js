@@ -1,5 +1,7 @@
 import { brand } from "./brand.js";
 import { validateBoard } from './boardValidation.js';
+import { shareSnapshot } from './shareSnapshot.js';
+import { isValidTimestamp } from './projectDates.js';
 
 export const MAX_SHARE_BYTES = 8 * 1024 * 1024;
 export const MAX_SHARE_URL_LENGTH = 1_000_000;
@@ -13,6 +15,7 @@ function validateProject(project) {
   const fail = () => { throw new Error(invalidLink); };
   if (!isRecord(project) || !isText(project.title) || !isRecord(project.board)) fail();
   for (const key of ["accent", "folder"]) if (!optional(project[key], isText)) fail();
+  for (const key of ["created", "updated", "deletedAt"]) if (!optional(project[key], isValidTimestamp)) fail();
   validateBoard(project.board, false, invalidLink);
   return project;
 }
@@ -41,14 +44,15 @@ async function readLimited(stream) {
   return result;
 }
 
-export async function createShareUrl(project, baseUrl, { access = "editable" } = {}) {
+export async function createShareUrl(project, baseUrl, { access = "editable", includeHidden = false, includeSavedViews = false } = {}) {
   validateProject(project);
   if (!["readonly", "editable"].includes(access)) throw new Error("Choose Read-only or Editable access.");
   const url = new URL("/share", baseUrl);
   if (!["https:", "http:"].includes(url.protocol)) throw new Error(`Use an HTTP or HTTPS address for ${brand.name}.`);
   // Serialize before awaiting compression so this is one consistent snapshot.
   // A new link version prevents older clients from importing read-only links as editable copies.
-  const bytes = new TextEncoder().encode(JSON.stringify({ format: "nova-share", version: 2, access, project }));
+  const shared = shareSnapshot(project, { includeHidden, includeSavedViews });
+  const bytes = new TextEncoder().encode(JSON.stringify({ format: "nova-share", version: 2, access, project: shared }));
   if (bytes.length > MAX_SHARE_BYTES) throw new Error(tooLarge);
   const compressed = typeof CompressionStream === "function";
   const encoded = compressed ? await readLimited(new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip"))) : bytes;

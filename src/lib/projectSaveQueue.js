@@ -2,7 +2,7 @@
 // accepting revisions written by a different tab behind the user's back.
 export function createProjectSaveQueue(write) {
   const queues = new Map(), revisions = new Map();
-  return (project, options = {}) => {
+  const persist = (project, options = {}) => {
     const captured = structuredClone(project);
     const pending = (queues.get(project.id) || Promise.resolve()).catch(() => {}).then(async () => {
       const revision = Math.max(revisions.get(project.id) || 0, captured.storageRevision || 0);
@@ -15,4 +15,8 @@ export function createProjectSaveQueue(write) {
     pending.then(cleanup, cleanup);
     return pending;
   };
+  persist.flush = async () => {
+    while (queues.size) await Promise.all([...queues.values()]);
+  };
+  return persist;
 }

@@ -15,7 +15,7 @@ test('production origin rejects ambiguous, insecure, and local addresses', () =>
 });
 test('all public routes have unique canonical metadata and valid catalog structured data', () => {
   const titles = new Set(), descriptions = new Set();
-  assert.equal(publicPaths.length, templates.length + 2);
+  assert.deepEqual(publicPaths, ['/', '/templates']);
   for (const path of publicPaths) {
     const page = pageMetadata(path, origin);
     assert.equal(page.canonical, `${origin}${path}`);
@@ -36,7 +36,7 @@ test('all public routes have unique canonical metadata and valid catalog structu
   assert.deepEqual(list.itemListElement.map(item => item.url), templates.map(item => `${origin}${templatePath(item)}`));
 });
 test('private, missing, and preview pages cannot emit public canonicals or board content', () => {
-  for (const path of ['/projects', '/projects/favorites', '/projects/folders/Confidential', '/boards/private-id', '/share', '/missing', '/templates/does-not-exist']) {
+  for (const path of ['/projects', '/projects/favorites', '/projects/folders/Confidential', '/boards/private-id', '/share', '/missing', '/templates/does-not-exist', '/templates/weekly-plan']) {
     const page = pageMetadata(path, origin);
     assert.match(page.robots, /^noindex/); assert.equal(page.canonical, ''); assert.equal(page.image, ''); assert.equal(page.schema, null);
     assert.ok(!renderHead(page).includes('Confidential'));

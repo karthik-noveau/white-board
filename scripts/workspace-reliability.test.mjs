@@ -5,6 +5,7 @@ import { createProjectSaveQueue } from '../src/lib/projectSaveQueue.js';
 import { templates } from '../src/data/templates.js';
 import { prepareWorkspaceImport } from '../src/lib/workspaceImport.js';
 import { backupFiles } from '../src/lib/brand.js';
+import { projectUpdatedLabel } from '../src/lib/projectDates.js';
 
 const memory = new Map(), downloads = [], filenames = [];
 Object.assign(globalThis, { indexedDB, IDBKeyRange, window: { indexedDB },
@@ -27,6 +28,88 @@ beforeEach(async () => {
 const board = () => ({ nodes: [{ id: 1, title: 'First idea', x: 0, y: 0, color: 'white' }, { id: 2, title: 'Second idea', x: 300, y: 0, color: 'white' }], edges: [{ id: 1, from: 1, to: 2 }] });
 const project = id => ({ id, title: id, updated: Date.now(), board: board() });
 const file = payload => ({ text: async () => JSON.stringify(payload) });
+
+test('workspace backup includes boards created in another tab and restores its entire history', async () => {
+  await storage.putProject(project('first'));
+  const staleTab = await storage.listProjects({ includeDeleted: true });
+  const second = await storage.putProject(project('second-tab-board'));
+  await storage.putProject({ ...second, title: 'Latest title' });
+  // Older callers passing their cached list must still get stored projects.
+  await storage.exportWorkspaceFile(staleTab);
+  const backup = JSON.parse(await downloads.at(-1).text());
+  assert.equal(backup.projects.length, 2);
+  assert.equal(backup.projects.find(item => item.id === second.id).title, 'Latest title');
+  const restored = await storage.importNovaFile(file(backup));
+  assert.equal(restored.length, 2);
+  assert.ok((await storage.listProjectVersions(restored.find(item => item.title === 'Latest title').id)).length);
+});
+
+test('backup after another tab deletes a board never resurrects stale cached projects', async () => {
+  const original = await storage.putProject(project('deleted-elsewhere'));
+  const staleTab = await storage.listProjects({ includeDeleted: true });
+  await storage.permanentlyDeleteProject(original.id);
+  await storage.exportWorkspaceFile(staleTab);
+  const backup = JSON.parse(await downloads.at(-1).text());
+  assert.deepEqual(backup.projects, []);
+  assert.deepEqual(backup.versions, []);
+  assert.deepEqual(await storage.importNovaFile(file(backup)), []);
+});
+
+test('flushing pending saves makes the latest queued edits available for backup', async () => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const write = createProjectSaveQueue(async (...args) => { await gate; return storage.putProject(...args); });
+  const original = project('pending');
+  const writes = [write(original), write({ ...original, title: 'Queued rename' })];
+  let completed = false;
+  const flushed = write.flush().then(() => { completed = true; });
+  await Promise.resolve();
+  assert.equal(completed, false);
+  release();
+  await flushed;
+  await Promise.all(writes);
+  await storage.exportWorkspaceFile();
+  const backup = JSON.parse(await downloads.at(-1).text());
+  assert.equal(backup.projects[0].title, 'Queued rename');
+});
+
+test('invalid project and history timestamps never partially import a workspace', async () => {
+  const valid = project('valid');
+  for (const value of [1e20, -1e20, 'yesterday']) {
+    for (const field of ['created', 'updated', 'deletedAt']) {
+      await assert.rejects(storage.importNovaFile(file({ format: 'nova-workspace', version: 1,
+        projects: [valid, { ...project('bad'), [field]: value }],
+      })), /invalid|unsupported/i);
+    }
+    await assert.rejects(storage.importNovaFile(file({ format: 'nova-workspace', version: 1,
+      projects: [valid], versions: [{ projectId: valid.id, createdAt: value, board: board() }],
+    })), /invalid|unsupported/i);
+    assert.deepEqual(await storage.listProjects({ includeDeleted: true }), []);
+  }
+  const [epoch] = await storage.importNovaFile(file({ format: 'nova-project', version: 1,
+    project: { ...valid, created: 0, updated: 0 },
+  }));
+  assert.equal(epoch.created, 0);
+  assert.equal(epoch.updated, 0);
+  assert.equal((await storage.listProjects())[0].updated, 0);
+});
+
+test('bad dates in existing storage have readable labels instead of crashing project lists', () => {
+  for (const updated of [1e20, -1e20, NaN, undefined, null, 'bad']) {
+    assert.equal(projectUpdatedLabel({ updated }), 'Edited date unavailable');
+    assert.equal(projectUpdatedLabel({ deletedAt: updated }, true), 'Deleted date unavailable');
+  }
+  assert.equal(projectUpdatedLabel({ updated: 1000 }, false, 1000), 'Edited today');
+  assert.match(projectUpdatedLabel({ updated: 0 }, false), /Edited .*1970/);
+});
+
+test('backup verification prevents downloading data the restore parser would reject', async () => {
+  const transaction = database.transaction('projects', 'readwrite');
+  transaction.objectStore('projects').put({ ...project('legacy-bad-date'), updated: 1e20 });
+  await transactionDone(transaction);
+  await assert.rejects(storage.exportWorkspaceFile(), /restorable backup could not be created/);
+  assert.equal(downloads.length, 0);
+});
 
 test('concurrent tabs cannot overwrite an acknowledged board or its history', async () => {
   const saved = await storage.putProject(project('concurrent'));
@@ -92,7 +175,7 @@ test('backup round trip retains every history entry, pinned labels and Trash sta
   transaction.objectStore('versions').put({ ...versions[1], pinned: true, label: 'Approved draft' });
   await transactionDone(transaction);
   await storage.moveProjectToTrash(current.id);
-  await storage.exportWorkspaceFile(await storage.listProjects({ includeDeleted: true }));
+  await storage.exportWorkspaceFile();
   const backup = JSON.parse(await downloads.at(-1).text());
   const [restored] = await storage.importNovaFile(file(backup));
   assert.notEqual(restored.id, current.id); assert.equal(restored.deletedAt, backup.projects[0].deletedAt);
@@ -185,7 +268,7 @@ test('DrawAnything project downloads round-trip while preserving pre-rebrand dat
 
 test('workspace and selection backups carry the new name and retain importable history', async () => {
   const existing = await storage.putProject(project('first'), { snapshot: true });
-  await storage.exportWorkspaceFile([existing]);
+  await storage.exportWorkspaceFile();
   assert.match(filenames.at(-1), /^drawanything-workspace-\d{4}-\d{2}-\d{2}\.drawanything-workspace$/);
   const workspace = JSON.parse(await downloads.at(-1).text());
   assert.equal(workspace.format, 'nova-workspace');
@@ -200,4 +283,68 @@ test('workspace and selection backups carry the new name and retain importable h
     assert.equal(restored.board.nodes[0].title, existing.board.nodes[0].title);
     assert.notEqual(restored.id, existing.id);
   }
+});
+
+test('folders persist without projects and rename/remove update all memberships without losing boards', async () => {
+  await storage.changeWorkspaceFolder('create', 'Empty folder');
+  await storage.putProject({ ...project('active'), folder: 'Work' });
+  const trashed = await storage.putProject({ ...project('trashed'), folder: 'Work', deletedAt: Date.now() });
+  assert.deepEqual(await storage.listWorkspaceFolders(), ['Empty folder', 'Work']);
+  const before = await storage.listProjects({ includeDeleted: true });
+  await storage.changeWorkspaceFolder('rename', 'Work', 'Design / 设计');
+  const renamed = await storage.listProjects({ includeDeleted: true });
+  assert.ok(renamed.every(item => item.folder === 'Design / 设计'));
+  assert.equal(renamed.find(item => item.id === trashed.id).deletedAt, trashed.deletedAt);
+  await assert.rejects(storage.putProject({ ...before[0], title: 'Stale folder assignment' }), /another tab|changed|conflict/i);
+  await storage.changeWorkspaceFolder('remove', 'Design / 设计');
+  const after = await storage.listProjects({ includeDeleted: true });
+  assert.equal(after.length, 2);
+  assert.ok(after.every(item => item.folder === ''));
+  assert.deepEqual(after.map(item => item.board), before.map(item => item.board));
+  assert.deepEqual(await storage.listWorkspaceFolders(), ['Empty folder']);
+});
+
+test('duplicate and invalid folder changes are rejected atomically; moving the last project preserves its old folder', async () => {
+  await storage.changeWorkspaceFolder('create', 'Research');
+  await storage.putProject({ ...project('moving'), folder: 'Work' });
+  const before = await storage.readWorkspaceBackup();
+  for (const args of [['create', 'research'], ['create', '  '], ['create', 'x'.repeat(181)], ['rename', 'Work', 'Research'], ['rename', 'Missing', 'New']]) {
+    await assert.rejects(storage.changeWorkspaceFolder(...args));
+    assert.deepEqual((await storage.readWorkspaceBackup()).projects, before.projects);
+    assert.deepEqual(await storage.listWorkspaceFolders(), ['Research', 'Work']);
+  }
+  await storage.applyProjectBatch(['moving'], 'move', 'Research');
+  assert.deepEqual(await storage.listWorkspaceFolders(), ['Research', 'Work']);
+  await storage.applyProjectBatch(['moving'], 'move', '');
+  assert.equal((await storage.listProjects())[0].folder, '');
+  assert.deepEqual(await storage.listWorkspaceFolders(), ['Research', 'Work']);
+});
+
+test('URL restore keeps empty folders, private content, Trash, history and colliding saved shapes', async () => {
+  const { createWorkspaceBackupUrl, readWorkspaceBackupUrl } = await import('../src/lib/workspaceShare.js');
+  await storage.changeWorkspaceFolder('create', 'Empty folder');
+  const source = { ...project('complete'), folder: 'Work', favorite: true, deletedAt: Date.now() };
+  source.board.nodes[0].presenterNote = 'Private backup note';
+  source.board.nodes[1].hidden = true;
+  await storage.putProject(source);
+  await storage.saveShapeLibraryItem({ id: 'shape-1', name: 'Stored shape', payload: board() });
+  const snapshot = await storage.readWorkspaceBackup();
+  const url = await createWorkspaceBackupUrl(snapshot, 'https://example.com');
+  const decoded = await readWorkspaceBackupUrl(url);
+  assert.deepEqual(decoded, snapshot);
+  // Reading and previewing a URL writes nothing.
+  assert.equal((await storage.listProjects({ includeDeleted: true })).length, 1);
+  const [copy] = await storage.importWorkspacePayload(decoded);
+  assert.notEqual(copy.id, source.id);
+  assert.equal(copy.folder, 'Work'); assert.equal(copy.favorite, true);
+  assert.equal(copy.deletedAt, source.deletedAt);
+  assert.equal(copy.board.nodes[0].presenterNote, 'Private backup note');
+  assert.equal(copy.board.nodes[1].hidden, true);
+  assert.equal((await storage.listProjectVersions(copy.id)).length, snapshot.versions.length);
+  assert.deepEqual(await storage.listWorkspaceFolders(), ['Empty folder', 'Work']);
+  const shapes = await storage.listShapeLibrary();
+  assert.equal(shapes.length, 2); assert.equal(new Set(shapes.map(item => item.id)).size, 2);
+  assert.equal(shapes.find(item => item.id === 'shape-1').name, 'Stored shape');
+  await assert.rejects(storage.importWorkspacePayload({ ...decoded, folders: [123] }));
+  assert.equal((await storage.listProjects({ includeDeleted: true })).length, 2);
 });

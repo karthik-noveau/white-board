@@ -12,6 +12,7 @@ export default function ProductPage({ page, onCreate }) {
   const starter = templates.find(item => item.id === page.starter);
   const preview = templates.find(item => item.id === (page.preview || page.starter));
   const picks = page.templateIds.map(id => templates.find(item => item.id === id));
+  const related = productPages.filter(item => item.path !== page.path);
   return <div className={styles.page}>
     <a href="#main" className={styles.skip}>Skip to content</a>
     <SiteHeader/>
@@ -26,7 +27,7 @@ export default function ProductPage({ page, onCreate }) {
       <section className={styles.benefits} aria-label={`Ways to use ${page.label.toLowerCase()}`}>{page.benefits.map((benefit, index) => <article key={benefit.title}><BoardIcon name={['layout', 'note', 'share'][index]} size={22}/><h3>{benefit.title}</h3><p>{benefit.text}</p></article>)}</section>
       <section className={styles.templates} id="templates" aria-labelledby="templates-title"><div className={styles.sectionTop}><div><span className={styles.eyebrow}>A place to begin</span><h2 id="templates-title">Start with a little structure.</h2></div><Link to="/templates">View all templates <BoardIcon name="forward" size={16}/></Link></div><div className={styles.templateGrid}>{picks.map(template => <article key={template.id}><Link className={styles.templatePreview} to={templatePath(template)} aria-label={`Explore ${template.name} template`}><BoardPreview board={template.board} aspectRatio={1.65}/></Link><div><h3><Link to={templatePath(template)}>{template.name}</Link></h3><p>{template.description}</p><button onClick={() => onCreate(template)} aria-label={`Use template: ${template.name}`}>Use template<BoardIcon name="forward" size={16}/></button></div></article>)}</div></section>
       <section className={styles.faq} aria-labelledby="questions-title"><div><span className={styles.eyebrow}>Good to know</span><h2 id="questions-title">A little clarity<br/>before you start.</h2></div><div>{page.faqs.map(item => <details key={item.question}><summary>{item.question}<span aria-hidden="true">+</span></summary><p>{item.answer}</p></details>)}</div></section>
-      <nav className={styles.related} aria-label="More ways to use DrawAnything"><span>Keep exploring</span>{productPages.filter(item => item.path !== page.path).map(item => <Link key={item.path} to={item.path}>{item.label}<BoardIcon name="forward" size={17}/></Link>)}</nav>
+      {related.length > 0 && <nav className={styles.related} aria-label="More ways to use DrawAnything"><span>Keep exploring</span>{related.map(item => <Link key={item.path} to={item.path}>{item.label}<BoardIcon name="forward" size={17}/></Link>)}</nav>}
     </main>
     <SiteFooter/>
   </div>;

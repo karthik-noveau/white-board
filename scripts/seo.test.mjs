@@ -54,7 +54,7 @@ test('other build environments still require an explicitly configured production
 });
 test('all public routes have unique canonical metadata and valid catalog structured data', () => {
   const titles = new Set(), descriptions = new Set();
-  assert.deepEqual(publicPaths, ['/', '/templates', '/mind-map-maker', '/online-whiteboard', '/visual-planning', '/about', '/help']);
+  assert.deepEqual(publicPaths, ['/', '/templates', '/online-whiteboard', '/about', '/help']);
   for (const path of publicPaths) {
     const page = pageMetadata(path, origin);
     assert.equal(page.canonical, `${origin}${path}`);
@@ -116,7 +116,7 @@ test('public guides have actionable workflows, valid template picks, and distinc
   }
 });
 test('private, missing, and preview pages cannot emit public canonicals or board content', () => {
-  for (const path of ['/projects', '/projects/favorites', '/projects/folders/Confidential', '/boards/private-id', '/share', '/share/', '/missing', '/templates/does-not-exist', '/templates/weekly-plan', '/mind-map-maker/not-real']) {
+  for (const path of ['/projects', '/projects/favorites', '/projects/folders/Confidential', '/boards/private-id', '/share', '/share/', '/missing', '/templates/does-not-exist', '/templates/weekly-plan', '/mind-map-maker', '/mind-map-maker/', '/visual-planning', '/visual-planning/', '/online-whiteboard/not-real']) {
     const page = pageMetadata(path, origin);
     assert.match(page.robots, /^noindex/); assert.equal(page.canonical, ''); assert.equal(page.image, ''); assert.equal(page.schema, null);
     assert.ok(!renderHead(page).includes('Confidential'));
@@ -149,7 +149,7 @@ async function serviceWorker() {
 test('offline navigation never confuses public pages with each other or private boards', async () => {
   const sw = await serviceWorker();
   await sw.navigate('/'); await sw.navigate('/templates?campaign=a'); await sw.navigate('/boards/private');
-  await sw.navigate('/mind-map-maker'); await sw.navigate('/share/');
+  await sw.navigate('/online-whiteboard'); await sw.navigate('/share/');
   assert.ok(sw.records.has('/')); assert.ok(sw.records.has('/templates'));
   assert.ok(!sw.records.has('/templates?campaign=a')); assert.ok(!sw.records.has('/boards/private'));
   assert.ok(!sw.records.has('/share/'));
@@ -157,7 +157,7 @@ test('offline navigation never confuses public pages with each other or private 
   assert.equal(await sw.navigate('/'), `HTML:${origin}/`);
   assert.equal(await sw.navigate('/templates?campaign=b'), `HTML:${origin}/templates?campaign=a`);
   assert.equal(await sw.navigate('/boards/another'), 'neutral application shell');
-  assert.equal(await sw.navigate('/mind-map-maker'), `HTML:${origin}/mind-map-maker`);
+  assert.equal(await sw.navigate('/online-whiteboard'), `HTML:${origin}/online-whiteboard`);
   assert.equal(await sw.navigate('/share/'), 'neutral application shell');
 });
 test('service-worker activation only removes this app’s old caches', async () => {

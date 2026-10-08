@@ -17,9 +17,9 @@ Navigation uses React Router and the browser History API.
 | URL | Page |
 | --- | --- |
 | `/` | Landing page |
-| `/mind-map-maker` | Mind mapping workflow, examples, and starter templates |
 | `/online-whiteboard` | Whiteboarding workflow, storage, and sharing guidance |
-| `/visual-planning` | Visual project planning workflow and starter templates |
+| `/about` | Product information and downloadable brand assets |
+| `/help` | Getting started, saving, sharing, and backup guidance |
 | `/projects` | All projects |
 | `/templates` | Searchable, categorized template library |
 | `/projects/templates` | Template library inside the workspace |
@@ -119,9 +119,8 @@ favicons and the install manifest; production builds regenerate all assets.
 Versioned icon and social-image URLs help refresh previews after a rebrand.
 Increase `brand.assetVersion` when changing the public logo.
 
-The build renders seven public pages: the homepage, template library, guides
-for mind maps, online whiteboarding, and visual planning, plus About and Help.
-Each product guide includes a
+The build renders five public pages: the homepage, template library, online
+whiteboarding guide, About, and Help. The whiteboarding guide includes a
 concrete example, an actionable workflow, relevant template links, and visible
 answers about product capabilities. Copy lives in `src/data/productPages.js`;
 that registry also drives routes, metadata, social previews, and navigation.
@@ -173,7 +172,7 @@ verification tokens issued by those services. Only the indexed homepage emits
 them. Tokens are public HTML metadata, not account credentials; adding one does
 not submit a sitemap or request indexing.
 
-`npm run test:seo` verifies all seven generated pages, unique metadata, JSON-LD
+`npm run test:seo` verifies all five generated pages, unique metadata, JSON-LD
 references, linked template anchors, reachability from the homepage, social image
 dimensions, downloadable brand files, responsive image files, favicon sizes,
 sitemap membership, robots rules, and private shells.

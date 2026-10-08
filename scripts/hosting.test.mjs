@@ -43,7 +43,7 @@ test('private and missing URLs use neutral noindex shells and correct statuses',
     assert.match(response.headers['X-Robots-Tag'], /^noindex/);
     assert.equal(response.body, '<h1>Private shell</h1>');
   }
-  for (const url of ['/not-a-page', '/about/nope', '/404.html', '/%2F..%2Foutside.txt']) {
+  for (const url of ['/not-a-page', '/about/nope', '/mind-map-maker', '/mind-map-maker/', '/mind-map-maker/index.html', '/visual-planning', '/visual-planning/', '/visual-planning/index.html', '/404.html', '/%2F..%2Foutside.txt']) {
     const response = await request(url);
     assert.equal(response.status, 404, url);
     assert.match(response.headers['X-Robots-Tag'], /^noindex/);

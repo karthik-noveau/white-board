@@ -99,7 +99,7 @@ export default function Landing({ onCreate }) {
         <LandingPlayground onCreate={onCreate}/>
       </section>
 
-      <section className={styles.useCases} data-reveal="" aria-label="A workspace for every way you think"><span>BUILT FOR THE WAY YOU THINK</span><Link to="/online-whiteboard"><BoardIcon name="layout" size={22}/>Online whiteboarding</Link><Link to="/mind-map-maker"><BoardIcon name="spark" size={22}/>Mind maps & ideas</Link><Link to="/visual-planning"><BoardIcon name="calendar" size={22}/>Visual planning</Link><Link to="/templates"><BoardIcon name="note" size={22}/>Editable templates</Link></section>
+      <section className={styles.useCases} data-reveal="" aria-label="A workspace for every way you think"><span>BUILT FOR THE WAY YOU THINK</span><Link to="/online-whiteboard"><BoardIcon name="layout" size={22}/>Online whiteboarding</Link><Link to="/templates#template-brainstorm"><BoardIcon name="spark" size={22}/>Mind maps & ideas</Link><Link to="/templates#template-project-plan"><BoardIcon name="calendar" size={22}/>Visual planning</Link><Link to="/templates"><BoardIcon name="note" size={22}/>Editable templates</Link></section>
 
       <section className={styles.features} id="features" aria-labelledby="features-title">
         <SectionHeading eyebrow="THINK CLEARER. MOVE FORWARD." title={<span id="features-title">Less friction.<br/><span className={styles.gradientText}>More forward motion.</span></span>} description="The space to explore. The structure to make it happen."/>

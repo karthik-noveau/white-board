@@ -6,12 +6,34 @@ import { JSDOM } from 'jsdom';
 import { publicOrigin, brand } from '../src/lib/brand.js';
 import { pageMetadata, publicPaths, renderHead, safeJson, templatePath } from '../src/lib/seo.js';
 import { templates } from '../src/data/templates.js';
+import { resolveBuildOrigin } from './build-origin.mjs';
 
 const origin = 'https://whiteboard.example'; // Test fixture, never a deployment default.
 test('production origin rejects ambiguous, insecure, and local addresses', () => {
   assert.equal(publicOrigin(''), '');
   assert.equal(publicOrigin(`${origin}/`), origin);
   for (const url of ['http://whiteboard.example', 'https://localhost', 'https://127.0.0.1', 'https://user:pass@whiteboard.example', `${origin}/app`, `${origin}?x=1`, `${origin}#hash`, 'not a url']) assert.throws(() => publicOrigin(url));
+});
+test('Netlify production uses the main site URL when the public origin is missing', () => {
+  const env = { NETLIFY: 'true', CONTEXT: 'production', URL: `${origin}/`, DEPLOY_URL: 'https://unique-deploy.example', DEPLOY_PRIME_URL: 'https://branch-deploy.example' };
+  for (const VITE_PUBLIC_APP_URL of [undefined, '', '  ']) {
+    assert.equal(resolveBuildOrigin({ ...env, VITE_PUBLIC_APP_URL }, { requireOrigin: true }), origin);
+  }
+  assert.equal(resolveBuildOrigin({ ...env, VITE_PUBLIC_APP_URL: 'https://custom.example/' }), 'https://custom.example');
+  assert.throws(() => resolveBuildOrigin({ ...env, VITE_PUBLIC_APP_URL: 'invalid' }));
+  assert.throws(() => resolveBuildOrigin({ ...env, URL: 'http://insecure.example' }));
+  assert.throws(() => resolveBuildOrigin({ ...env, URL: '' }, { requireOrigin: true }));
+});
+test('Netlify previews remain unindexed even with an inherited production origin', () => {
+  for (const CONTEXT of ['deploy-preview', 'branch-deploy', 'dev', undefined]) {
+    assert.equal(resolveBuildOrigin({ NETLIFY: 'true', CONTEXT, URL: origin, VITE_PUBLIC_APP_URL: origin }), '');
+  }
+});
+test('other build environments still require an explicitly configured production origin', () => {
+  const env = { URL: origin, CONTEXT: 'production' };
+  assert.equal(resolveBuildOrigin(env), '');
+  assert.throws(() => resolveBuildOrigin(env, { requireOrigin: true }), /VITE_PUBLIC_APP_URL/);
+  assert.equal(resolveBuildOrigin({ ...env, VITE_PUBLIC_APP_URL: origin }, { requireOrigin: true }), origin);
 });
 test('all public routes have unique canonical metadata and valid catalog structured data', () => {
   const titles = new Set(), descriptions = new Set();

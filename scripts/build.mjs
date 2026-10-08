@@ -3,14 +3,16 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, readdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
-import { brand, publicOrigin } from '../src/lib/brand.js';
+import { brand } from '../src/lib/brand.js';
 import { generateBrandAssets } from './brand-assets.mjs';
+import { resolveBuildOrigin } from './build-origin.mjs';
 
 const output = process.env.SEO_OUTPUT_DIR || 'dist';
 const serverOutput = `${output}-ssr`;
 const env = loadEnv('production', process.cwd(), 'VITE_');
-const origin = publicOrigin(env.VITE_PUBLIC_APP_URL);
-if (process.argv.includes('--require-origin') && !origin) throw new Error('Set VITE_PUBLIC_APP_URL to the production HTTPS origin before building for deployment.');
+const origin = resolveBuildOrigin({ ...process.env, ...env }, { requireOrigin: process.argv.includes('--require-origin') });
+// Keep browser metadata/share links and prerendered HTML on the same origin.
+process.env.VITE_PUBLIC_APP_URL = origin;
 await build({ build: { manifest: true, outDir: output } });
 await build({ build: { ssr: 'src/entry-server.jsx', outDir: serverOutput } });
 const { render, renderHead, pageMetadata, publicPaths } = await import(pathToFileURL(resolve(serverOutput, 'entry-server.js')));

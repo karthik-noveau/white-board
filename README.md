@@ -121,20 +121,24 @@ Retired template detail URLs redirect to the library and are excluded from the s
 Metadata contains only public catalog content, never local board data. Workspace,
 board, share, and missing-page responses have `noindex` in their initial HTML.
 
-Set `VITE_PUBLIC_APP_URL` to the **real production HTTPS origin** before deploying,
-for example in the hosting provider's build environment. Use the origin only,
-without a subdirectory, query, or fragment. This also controls public share URLs.
+On Netlify, production builds automatically use the site's main `URL` as the
+public origin. Set `VITE_PUBLIC_APP_URL` in the build environment to override it,
+or when deploying to another provider. Use the **real production HTTPS origin**
+only, without a subdirectory, query, or fragment. The resolved origin is used
+for both page metadata and public share URLs.
 
 ```sh
 npm run build:production
 npm run test:seo
 ```
 
-`build:production` fails if the origin is missing or invalid. An ordinary
+`build:production` fails if neither a configured origin nor a valid Netlify
+production URL is available. Invalid origins also fail validation. An ordinary
 `npm run build` without an origin creates an unindexed preview: it omits canonical
 URLs and structured data and emits a blocking robots file and empty sitemap.
-No placeholder domain is shipped. Keep the variable unset for preview deployments;
-do not copy a production indexing configuration to an unrelated preview hostname.
+No placeholder domain is shipped. Netlify deploy previews and branch deploys
+always build without a public origin, even if they inherit the production
+variable. On other hosts, keep the variable unset for preview deployments.
 
 After deployment, verify `/robots.txt`, `/sitemap.xml`, and `/templates`
 at the real origin. Add that property to Google Search Console, submit the

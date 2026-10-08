@@ -15,7 +15,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.mode === 'navigate') {
     // Keep public HTML under its own path; never cache private views or queries.
-    const privateRoute = /^\/(projects|boards)(\/|$)/.test(url.pathname) || url.pathname === '/share';
+    const privateRoute = /^\/(projects|boards)(\/|$)/.test(url.pathname) || /^\/share\/?$/.test(url.pathname);
     event.respondWith((async () => {
       const cache = await caches.open(CACHE);
       try {

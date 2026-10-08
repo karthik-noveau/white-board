@@ -11,9 +11,8 @@ export function previewRouting() {
       let path;
       try { path = decodeURIComponent(url.pathname); } catch { response.writeHead(400).end(); return; }
       const clean = path === '/' ? '/' : path.replace(/\/$/, '');
-      const legacy = path === '/templates' && url.searchParams.get('template');
-      const canonical = legacy && publicPaths.includes(`/templates/${legacy}`) ? `/templates/${legacy}` : path === '/index.html' ? '/' : path.endsWith('/index.html') && publicPaths.includes(path.slice(0, -11)) ? path.slice(0, -11) : path !== clean && publicPaths.includes(clean) ? clean + url.search : null;
-      if (canonical) { response.writeHead(301, { Location: canonical }).end(); return; }
+      const canonical = path === '/index.html' ? '/' : path.endsWith('/index.html') && publicPaths.includes(path.slice(0, -11)) ? path.slice(0, -11) : (path !== clean || url.pathname !== path) && publicPaths.includes(clean) ? clean : path.startsWith('/templates/') ? '/templates' : null;
+      if (canonical) { response.writeHead(301, { Location: canonical + url.search }).end(); return; }
       const publicPage = publicPaths.includes(clean);
       const privatePage = isWorkspacePath(path) || path === '/app.html';
       if (!publicPage && !privatePage && path !== '/404.html') {
@@ -24,7 +23,8 @@ export function previewRouting() {
       const file = publicPage ? `${clean === '/' ? '' : clean}/index.html` : privatePage ? '/app.html' : '/404.html';
       try {
         const html = await readFile(resolve(server.config.root, server.config.build.outDir, `.${file}`));
-        response.writeHead(publicPage || privatePage ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ...(!publicPage && { 'X-Robots-Tag': 'noindex, nofollow, noarchive' }) });
+        const noindex = !publicPage || /name="robots" content="noindex/.test(html.toString());
+        response.writeHead(publicPage || privatePage ? 200 : 404, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ...(noindex && { 'X-Robots-Tag': 'noindex, nofollow, noarchive' }) });
         response.end(request.method === 'HEAD' ? undefined : html);
       } catch (error) { next(error); }
     });

@@ -3,6 +3,10 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { Route, Routes, useLocation, useNavigate, useParams } from "react-router";
 import Home from "./components/Home";
 import Landing from "./components/Landing";
+import ProductPage from "./components/ProductPage";
+import ResourcePage from "./components/ResourcePage";
+import { productPages } from "./data/productPages";
+import { resourcePages } from "./data/resourcePages";
 import TemplatePage, { WorkspaceTemplatePage } from "./components/TemplatePage";
 import WorkspaceLayout from "./components/WorkspaceLayout";
 import RouteNotice from "./components/RouteNotice";
@@ -78,7 +82,13 @@ export default function App() {
   },[replaceProjects,persistProject]);
 
   useEffect(()=>{ensureWorkspace().catch(()=>{})},[ensureWorkspace]);
-  useEffect(()=>{window.scrollTo(0,0)},[location.pathname]);
+  useEffect(() => {
+    let anchor;
+    try { anchor = decodeURIComponent(location.hash.slice(1)); } catch { anchor = ''; }
+    const target = anchor && document.getElementById(anchor);
+    if (target) target.scrollIntoView({ block: 'start' });
+    else window.scrollTo(0, 0);
+  }, [location.pathname, location.hash]);
 
   const createProject=async template=>{try{await ensureWorkspace()}catch(error){setCreateError(`Couldn’t create a board: ${error.message}`);return}const now=Date.now(),id=`project-${crypto.randomUUID()}`;const project={id,title:template?.name||"Untitled mind map",created:now,updated:now,accent:template?.accent||["violet","blue","green","orange"][projectsRef.current.filter(item=>!item.deletedAt).length%4],board:template?.board?structuredClone(template.board):undefined};replaceProjects([project,...projectsRef.current]);persistProject(project,{snapshot:Boolean(project.board)}).catch(error=>setStorageError(error.message));navigate(boardPath(id),{state:{from:location.pathname+location.search}})};
   const deleteProject=id=>{const now=Date.now();replaceProjects(projectsRef.current.map(project=>project.id===id?{...project,deletedAt:now,updated:now}:project));moveProjectToTrash(id).then(saved=>{if(saved)replaceProjects(projectsRef.current.map(project=>project.id===id?saved:project))}).catch(error=>setStorageError(error.message))};
@@ -136,6 +146,8 @@ export default function App() {
   const workspaceProps={folders,onManageFolder:manageFolder,projects:projects.filter(project=>!project.deletedAt),deletedProjects:projects.filter(project=>project.deletedAt),storageError,onDismissError:()=>setStorageError(""),onCreate:createProject,onDelete:deleteProject,onRestore:restoreDeleted,onDeleteForever:deleteForever,onDuplicate:duplicateProject,onRename:renameProject,onFavorite:toggleFavorite,onMoveFolder:moveToFolder,onExport:exportProjectFile,onBackup:backupWorkspace,onImport:importProject,onReadBackup:readBackup,onImportWorkspace:importWorkspace,onBatchAction:batchProjects};
   return <>{createError && <div className="creationError" role="alert">{createError}<button onClick={()=>setCreateError("")}>Dismiss</button></div>}<PageTransition><Routes>
     <Route path="/" element={<Landing onCreate={createProject}/>}/>
+    {productPages.map(page => <Route key={page.path} path={page.path} element={<ProductPage page={page} onCreate={createProject}/>}/>)}
+    {resourcePages.map(page => <Route key={page.path} path={page.path} element={<ResourcePage page={page}/>}/>)}
     <Route path="/templates" element={<TemplatePage onCreate={createProject}/>}/>
     <Route path="/templates/:templateId" element={<TemplatePage onCreate={createProject}/>}/>
     <Route path="/projects" element={<WorkspaceLayout {...workspaceProps}/>}>

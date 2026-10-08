@@ -32,7 +32,8 @@ await writeFile(`${output}/sitemap.xml`, `<?xml version="1.0" encoding="UTF-8"?>
 // would loop. Canonicals handle those aliases; Pretty URLs are disabled in netlify.toml.
 const redirects = ['/index.html / 301!', ...publicPaths.filter(path => path !== '/').map(path => `${path}/index.html ${path} 301!`), '/templates/* /templates 301!', '/projects /app.html 200', '/projects/* /app.html 200', '/boards /app.html 200', '/boards/* /app.html 200', '/share /app.html 200', ...publicPaths.filter(path => path !== '/').map(path => `${path} ${path}/index.html 200`), '/* /404.html 404'];
 await writeFile(`${output}/_redirects`, `${redirects.join('\n')}\n`);
-await writeFile(`${output}/_headers`, `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Cache-Control: public, max-age=0, must-revalidate\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n/app.html\n  X-Robots-Tag: noindex, nofollow, noarchive\n/404.html\n  X-Robots-Tag: noindex, nofollow, noarchive\n/sw.js\n  Cache-Control: no-cache\n`);
+const privateHeaders = ['/projects', '/projects/*', '/boards', '/boards/*', '/share', '/share/', '/app.html', '/404.html'].map(path => `${path}\n  X-Robots-Tag: noindex, nofollow, noarchive`).join('\n');
+await writeFile(`${output}/_headers`, `/*\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Cache-Control: public, max-age=0, must-revalidate\n${origin ? '' : '  X-Robots-Tag: noindex, nofollow, noarchive\n'}/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n${privateHeaders}\n/sw.js\n  Cache-Control: no-cache\n`);
 // Versioned with the build, so cached HTML never points at removed assets.
 const files = await readdir(`${output}/assets`);
 const manifest = JSON.parse(await readFile(`${output}/manifest.json`, 'utf8'));
@@ -48,7 +49,7 @@ function include(key) {
 // CodeMirror language or PDF-export dependency on a landing-page visit.
 for (const key of ['index.html', 'src/components/Canvas.jsx', 'src/components/ReadOnlyBoard.jsx']) include(key);
 const installManifest = JSON.parse(await readFile(`${output}/manifest.webmanifest`, 'utf8'));
-const shellAssets = [...new Set([...assets, `/brand.svg?v=${brand.assetVersion}`, `/manifest.webmanifest?v=${brand.assetVersion}`, ...installManifest.icons.map(icon => icon.src), `/icons/icon-32.png?v=${brand.assetVersion}`, `/icons/icon-180.png?v=${brand.assetVersion}`])];
+const shellAssets = [...new Set([...assets, `/brand.svg?v=${brand.assetVersion}`, `/manifest.webmanifest?v=${brand.assetVersion}`, ...installManifest.icons.map(icon => icon.src), ...[32, 48, 180].map(size => `/icons/icon-${size}.png?v=${brand.assetVersion}`)])];
 const revision = createHash('sha256').update(shell + files.sort().join('')).digest('hex').slice(0, 12);
 const sw = (await readFile('public/sw.js', 'utf8')).replace('__BUILD_REVISION__', revision).replace('/*__PRECACHE__*/', shellAssets.map(file => JSON.stringify(file)).join(','));
 await writeFile(`${output}/sw.js`, sw);

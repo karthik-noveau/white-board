@@ -9,6 +9,7 @@
     "build:production": "node scripts/build.mjs --require-origin",
     "test": "node --test scripts/*.test.mjs",
     "test:seo": "node --test scripts/seo.test.mjs && node scripts/verify-seo.mjs",
+    "audit:seo": "node scripts/audit-seo.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "brand:assets": "node scripts/brand-assets.mjs --public"

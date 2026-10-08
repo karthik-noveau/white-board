@@ -17,6 +17,9 @@ Navigation uses React Router and the browser History API.
 | URL | Page |
 | --- | --- |
 | `/` | Landing page |
+| `/mind-map-maker` | Mind mapping workflow, examples, and starter templates |
+| `/online-whiteboard` | Whiteboarding workflow, storage, and sharing guidance |
+| `/visual-planning` | Visual project planning workflow and starter templates |
 | `/projects` | All projects |
 | `/templates` | Searchable, categorized template library |
 | `/projects/templates` | Template library inside the workspace |
@@ -108,15 +111,34 @@ build host for consistent typography. New downloads use `.drawanything` and `.dr
 Older `.nova` and `.nova-workspace` files still import. Storage identifiers,
 clipboard formats, and serialized backup/share formats stay unchanged, so
 existing boards, history, and shared links remain usable.
+The shared header and footer use the same wordmark, purple mark, and
+“Your ideas, connected.” positioning. Install assets include a maskable icon
+with an inset mark, a 48-pixel search favicon, and a multi-size `favicon.ico`.
 Run `npm run brand:assets` after editing the identity to refresh development
 favicons and the install manifest; production builds regenerate all assets.
 Versioned icon and social-image URLs help refresh previews after a rebrand.
 Increase `brand.assetVersion` when changing the public logo.
 
-The build renders the homepage and template library to
-HTML. They have unique descriptions, canonical URLs, Open Graph/Twitter previews,
-and JSON-LD for the website, web application, collection, and breadcrumbs. The
-catalog is visible without JavaScript; previewing and editing require it.
+The build renders seven public pages: the homepage, template library, guides
+for mind maps, online whiteboarding, and visual planning, plus About and Help.
+Each product guide includes a
+concrete example, an actionable workflow, relevant template links, and visible
+answers about product capabilities. Copy lives in `src/data/productPages.js`;
+that registry also drives routes, metadata, social previews, and navigation.
+The pages have unique titles, descriptions, canonical URLs, Open Graph/Twitter
+previews, and connected JSON-LD entities for the brand, website, web application,
+page, social image, collection, and breadcrumbs. All public content and links are
+available without JavaScript; previewing and editing boards require it.
+FAQs are ordinary visible content; the site does not claim FAQ rich-result
+eligibility or publish invented reviews, ratings, or company details.
+`src/data/resourcePages.js` holds the About and Help content. The About page
+explains the product and offers downloadable SVG wordmark/mark and PNG icon
+assets. Help documents the actual save, backup, share, export, and offline flows.
+Both pages have static section links, breadcrumbs, dedicated social cards,
+and public metadata; the About page uses an `AboutPage` entity tied to the brand.
+Brand downloads are generated with the other assets by `brand:assets` and builds.
+The homepage uses responsive 720/1280/1774-pixel WebP images (10–78 KB), with
+the original JPEG as fallback, explicit dimensions, and high fetch priority.
 Retired template detail URLs redirect to the library and are excluded from the sitemap.
 Metadata contains only public catalog content, never local board data. Workspace,
 board, share, and missing-page responses have `noindex` in their initial HTML.
@@ -138,13 +160,51 @@ production URL is available. Invalid origins also fail validation. An ordinary
 URLs and structured data and emits a blocking robots file and empty sitemap.
 No placeholder domain is shipped. Netlify deploy previews and branch deploys
 always build without a public origin, even if they inherit the production
-variable. On other hosts, keep the variable unset for preview deployments.
+variable. Vercel preview, development, and custom non-production environments
+also suppress the inherited production origin. On other hosts, set
+`DEPLOYMENT_ENV=preview` in the build environment, or leave the public URL unset.
+`DEPLOYMENT_ENV` accepts only `production` or `preview`; a provider's detected
+preview state always takes precedence. Vercel still needs an explicitly configured
+production origin and equivalent hosting routes; preview detection does not
+configure that provider's routing.
+Copy `.env.example` to `.env.local` to configure local builds. Optional
+`VITE_GOOGLE_SITE_VERIFICATION` and `VITE_BING_SITE_VERIFICATION` accept the public
+verification tokens issued by those services. Only the indexed homepage emits
+them. Tokens are public HTML metadata, not account credentials; adding one does
+not submit a sitemap or request indexing.
 
-After deployment, verify `/robots.txt`, `/sitemap.xml`, and `/templates`
+`npm run test:seo` verifies all seven generated pages, unique metadata, JSON-LD
+references, linked template anchors, reachability from the homepage, social image
+dimensions, downloadable brand files, responsive image files, favicon sizes,
+sitemap membership, robots rules, and private shells.
+Unit tests additionally cover preview isolation, private routes, escaping, and
+service-worker navigation. Deployment previews receive an HTTP `noindex` header;
+private routes also carry it at their original paths, alongside HTML metadata.
+Hosting regression tests check permanent redirects, query preservation, encoded
+public aliases, private shells, missing paths, and preview HTTP indexing headers.
+
+Run the read-only HTTP audit against the actual deployment after publishing:
+
+```sh
+npm run audit:seo -- https://your-production-domain
+```
+
+It checks all public HTML, metadata, structured data, section links, brand
+downloads, sitemap and robots, private/404 pages, permanent redirects, and social
+image dimensions. It prints a JSON report and exits nonzero on failure. For a
+preview, append `--preview`. To test a local production fixture, set
+`SEO_EXPECTED_ORIGIN` to the fixture's canonical origin and pass the localhost
+preview URL. The audit never submits a sitemap or accesses saved board data.
+
+After deployment, verify `/robots.txt`, `/sitemap.xml`, and every public route
 at the real origin. Add that property to Google Search Console, submit the
 sitemap, and inspect those URLs. Search Console verification and indexing require
 access to the deployed domain; metadata alone does not guarantee rankings or
-specific search-result features.
+specific search-result features. The implementation follows
+[Google's JavaScript SEO guidance](https://developers.google.com/search/docs/crawling-indexing/javascript/javascript-seo-basics)
+and [guidance for generative AI search](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide):
+useful visible content, crawlable links, and consistent indexing signals are the
+foundation. A special AI text file is not required for Google Search visibility.
 
 ## Hosting
 

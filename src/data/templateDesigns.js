@@ -27,12 +27,12 @@ export function arrangeTemplateBranches({ root, groups, layout, accent }) {
   } else if (layout === 'columns' || layout === 'phases') {
     const width = 272, gap = 88, step = width + gap;
     const phases = layout === 'phases';
-    const anchor = add(root, phases ? 0 : ((groups.length - 1) * step) / 2, 0, width, 104, accent, true);
+    const anchor = add(root, ((groups.length - 1) * step) / 2, 0, width, 104, accent, true);
     let previous = anchor;
     groups.forEach((group, index) => {
-      const x = (index + (phases ? 1 : 0)) * step, y = phases ? 0 : 208;
+      const x = index * step, y = 208;
       const branch = add(group, x, y, width, 104, group.color);
-      connect(phases ? previous : anchor, branch, phases ? 'right' : 'bottom');
+      connect(phases ? previous : anchor, branch, phases && index > 0 ? 'right' : 'bottom');
       previous = branch;
       let parent = branch;
       group.items.forEach((item, itemIndex) => {

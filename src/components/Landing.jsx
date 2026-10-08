@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import BoardIcon from "./BoardIcon";
 import LandingPlayground from "./LandingPlayground";
 import SiteHeader from "./SiteHeader";
+import SiteFooter from "./SiteFooter";
 import BrandMark from "./BrandMark";
 import { brand } from "../lib/brand";
 import styles from "../styles/landing.module.css";
@@ -13,7 +14,7 @@ function Arrow({ diagonal = false }) {
 
 function IdeaBackdrop() {
   return <div className={styles.heroAtmosphere} aria-hidden="true">
-    <img src="/images/landing-landscape.jpg" width="1774" height="887" alt="" fetchPriority="high" decoding="async"/>
+    <picture><source type="image/webp" srcSet="/images/landing-landscape-720.webp 720w, /images/landing-landscape-1280.webp 1280w, /images/landing-landscape-1774.webp 1774w" sizes="100vw"/><img src="/images/landing-landscape.jpg" width="1774" height="887" alt="" fetchPriority="high" decoding="async"/></picture>
   </div>;
 }
 
@@ -74,7 +75,7 @@ const faqs = [
   { question: "Do I need an account to get started?", answer: "No. Open your workspace and start with a blank board or one of the templates. There’s no sign-up or setup." },
   { question: "Where are my boards saved?", answer: `${brand.name} automatically saves your boards in this browser on this device. Export a ${brand.name} board file or back up your workspace to keep a separate copy. Clearing browser data can remove your local boards.` },
   { question: "Can I share or export my work?", answer: "Yes. Share a read-only snapshot link or an editable copy, or export your board as an image, PDF, or an editable board file. Shared copies are independent, so later edits don’t sync between them." },
-  { question: `Can I use ${brand.name} offline?`, answer: `Once you’ve opened ${brand.name} online, you can return to your saved boards and keep working offline in the same browser.` },
+  { question: `Can I use ${brand.name} offline?`, answer: `After you open ${brand.name} online and its offline setup finishes, you can return to saved boards in the same browser. Optional features may need to load online first.` },
 ];
 
 export default function Landing({ onCreate }) {
@@ -89,16 +90,16 @@ export default function Landing({ onCreate }) {
       <section className={styles.hero} aria-labelledby="hero-title" data-ambient="">
         <IdeaBackdrop/>
         <div className={styles.heroCopy}>
-          <a className={styles.eyebrow} href="#product"><BoardIcon name="spark" size={15}/>A little space for your next big idea<Arrow/></a>
+          <a className={styles.eyebrow} href="#product"><BoardIcon name="spark" size={15}/>{brand.tagline}<Arrow/></a>
           <h1 id="hero-title">Big ideas deserve<br/>a bigger picture.</h1>
-          <p>A quiet place for messy thinking. Connect your ideas,<br className={styles.desktopBreak}/> find the possibilities, and make your next move.</p>
+          <p>Your private online whiteboard for messy thinking.<br className={styles.desktopBreak}/> Make mind maps, connect ideas, and plan your next move.</p>
           <div className={styles.heroActions}><Link className={styles.primaryLink} to="/projects">Start creating <Arrow/></Link></div>
           <div className={styles.heroNote}><span><Check/>No account needed</span><span><Check/>Private by default</span></div>
         </div>
         <LandingPlayground onCreate={onCreate}/>
       </section>
 
-      <section className={styles.useCases} data-reveal="" aria-label="A workspace for every way you think"><span>BUILT FOR THE WAY YOU THINK</span><div><BoardIcon name="layout" size={22}/>Product & strategy</div><div><BoardIcon name="spark" size={22}/>Brainstorming</div><div><BoardIcon name="calendar" size={22}/>Project planning</div><div><BoardIcon name="note" size={22}/>Learning & research</div></section>
+      <section className={styles.useCases} data-reveal="" aria-label="A workspace for every way you think"><span>BUILT FOR THE WAY YOU THINK</span><Link to="/online-whiteboard"><BoardIcon name="layout" size={22}/>Online whiteboarding</Link><Link to="/mind-map-maker"><BoardIcon name="spark" size={22}/>Mind maps & ideas</Link><Link to="/visual-planning"><BoardIcon name="calendar" size={22}/>Visual planning</Link><Link to="/templates"><BoardIcon name="note" size={22}/>Editable templates</Link></section>
 
       <section className={styles.features} id="features" aria-labelledby="features-title">
         <SectionHeading eyebrow="THINK CLEARER. MOVE FORWARD." title={<span id="features-title">Less friction.<br/><span className={styles.gradientText}>More forward motion.</span></span>} description="The space to explore. The structure to make it happen."/>
@@ -119,7 +120,7 @@ export default function Landing({ onCreate }) {
       <section className={styles.closing} data-reveal="" aria-labelledby="closing-title"><div className={styles.closingGrid} aria-hidden="true"/><div><span className={styles.closingBadge}><BrandMark size={24}/>YOUR NEXT CHAPTER STARTS HERE</span><h2 id="closing-title">Make your next<br/>big idea happen.</h2><p>You bring the ideas. We’ll bring the space.</p></div><div className={styles.closingActions}><Link className={styles.primaryLink} to="/projects">Start creating <Arrow/></Link><span><Check/>No account. No setup. Just start.</span></div></section>
     </main>
 
-    <footer className={styles.footer}><div className={styles.footerTop}><div><Link to="/" className={styles.brand} aria-label={`${brand.name} home`}><span className={styles.brandIcon}><BrandMark size={24}/></span><b>{brand.name}</b></Link><p>{brand.tagline}</p></div><nav aria-label="Footer navigation"><a href="#product">Product</a><Link to="/templates">Templates</Link><a href="#faq">FAQs</a><Link to="/projects">Open workspace <Arrow diagonal/></Link></nav></div><div className={styles.footerBottom}><span>© {new Date().getFullYear()} {brand.name}</span><span><span className={styles.liveDot}/>A private space for your next big idea.</span><a href="#main">Back to top <span aria-hidden="true">↑</span></a></div></footer>
+    <SiteFooter/>
   </div>;
 }
 

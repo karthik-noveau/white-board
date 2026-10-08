@@ -84,7 +84,7 @@ test('homepage playground keeps edits across examples and carries them into a re
     assert.equal(document.querySelector('iframe'), null);
     for (const label of ['Main navigation', 'Mobile navigation']) {
       const navigation = document.querySelector(`[aria-label="${label}"]`);
-      assert.deepEqual([...navigation.querySelectorAll('a')].map(link => link.getAttribute('href')), ['/templates']);
+      assert.deepEqual([...navigation.querySelectorAll('a')].map(link => link.getAttribute('href')), ['/mind-map-maker', '/visual-planning', '/templates']);
     }
     assert.equal(document.querySelectorAll('header a[href^="#"]').length, 0);
     const field = document.querySelector('[aria-label="Your starting idea"]');

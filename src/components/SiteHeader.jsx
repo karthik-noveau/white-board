@@ -18,7 +18,7 @@ export function SiteHeaderFrame({ children, className = '', ...props }) {
 }
 
 function NavigationLinks({ onNavigate, templatePath }) {
-  return <NavLink to={templatePath} onClick={onNavigate}>Templates</NavLink>;
+  return <>{templatePath === '/templates' && <><NavLink to="/mind-map-maker" onClick={onNavigate}>Mind maps</NavLink><NavLink to="/visual-planning" onClick={onNavigate}>Visual planning</NavLink></>}<NavLink to={templatePath} onClick={onNavigate}>Templates</NavLink></>;
 }
 
 export default function SiteHeader({ layout = 'landing', onImport, onImportUrl, onBackup, onBackupUrl, backupBusy = false }) {

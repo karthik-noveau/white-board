@@ -4,7 +4,7 @@ const templateCatalog = [
   {
     "id": "product-roadmap",
     "name": "Product roadmap",
-    "description": "Connect vision, bets, releases, and outcomes.",
+    "description": "Choose what to deliver now, test next, and explore later.",
     "accent": "violet",
     "category": "product",
     "tags": [
@@ -21,7 +21,7 @@ const templateCatalog = [
   {
     "id": "project-plan",
     "name": "Project plan",
-    "description": "Organize phases, owners, and delivery milestones.",
+    "description": "Move from a clear outcome to milestones, owners, and a launch.",
     "accent": "blue",
     "category": "planning",
     "tags": [
@@ -38,7 +38,7 @@ const templateCatalog = [
   {
     "id": "brainstorm",
     "name": "Radial brainstorm",
-    "description": "Expand one idea in every direction.",
+    "description": "Explore a question from four angles and choose an idea to test.",
     "accent": "green",
     "category": "strategy",
     "tags": [
@@ -55,7 +55,7 @@ const templateCatalog = [
   {
     "id": "study-notes",
     "name": "Study notes",
-    "description": "Connect concepts, evidence, and questions.",
+    "description": "Explain a concept, connect examples, and check what you remember.",
     "accent": "blue",
     "category": "life",
     "tags": [
@@ -73,7 +73,7 @@ const templateCatalog = [
   {
     "id": "weekly-plan",
     "name": "Weekly priorities",
-    "description": "Make space for focused work, commitments, and a Friday reset.",
+    "description": "Choose a priority, protect your focus time, and review the week.",
     "accent": "blue",
     "category": "planning",
     "tags": [
@@ -90,7 +90,7 @@ const templateCatalog = [
   {
     "id": "meeting-agenda",
     "name": "Meeting to action",
-    "description": "Keep a meeting focused and leave with decisions, owners, and dates.",
+    "description": "Turn a focused discussion into decisions, owners, and next steps.",
     "accent": "violet",
     "category": "teamwork",
     "tags": [
@@ -107,7 +107,7 @@ const templateCatalog = [
   },
   {
     id: 'product-discovery', name: 'Product discovery', complexity: 'complex',
-    description: 'Capture research in evidence tables, interview checklists, and experiment notes.',
+    description: 'Collect customer evidence, compare opportunities, and plan a useful test.',
     accent: 'violet', category: 'product', tags: ['customer', 'research', 'validation', 'experiment'],
     steps: [
       'Frame the customer problem and map the people affected by it.',
@@ -117,7 +117,7 @@ const templateCatalog = [
   },
   {
     id: 'business-strategy', name: 'Business strategy', complexity: 'complex',
-    description: 'Work through strategic choices with scorecards, action lists, and review notes.',
+    description: 'Connect your strategic choices to initiatives and measurable outcomes.',
     accent: 'green', category: 'strategy', tags: ['business', 'goals', 'positioning', 'execution'],
     steps: [
       'Define the ambition and choose the customers and opportunities to focus on.',
@@ -127,7 +127,7 @@ const templateCatalog = [
   },
   {
     id: 'website-architecture', name: 'Website architecture', complexity: 'complex',
-    description: 'Plan pages with content tables, checklists, code, and design references.',
+    description: 'Give every page a purpose, organize its content, and prepare to publish.',
     accent: 'blue', category: 'product', tags: ['website', 'sitemap', 'navigation', 'content', 'UX'],
     steps: [
       'Name the main visitor goal and choose the sections your site needs.',
@@ -137,7 +137,7 @@ const templateCatalog = [
   },
   {
     id: 'product-launch', name: 'Product launch', complexity: 'complex',
-    description: 'Coordinate release tables, readiness checklists, assets, and launch-day notes.',
+    description: 'Align your message, release owners, readiness checks, and follow-up.',
     accent: 'violet', category: 'planning', tags: ['launch', 'release', 'marketing', 'readiness'],
     steps: [
       'Agree who the launch is for, the promise, and the outcome you will measure.',

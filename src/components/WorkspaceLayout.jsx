@@ -18,10 +18,24 @@ export default function WorkspaceLayout({ projects, deletedProjects, storageErro
   const [storage, setStorage] = useState(null), [backupBusy, setBackupBusy] = useState(false);
   const [transfer, setTransfer] = useState(null);
   const backUp = async () => { if (backupBusy) return; setBackupBusy(true); try { await onBackup(); } finally { setBackupBusy(false); } };
-  const saveStatus = <span className={styles.saveState} role="status" data-error={Boolean(storageError)} aria-label={storageError ? "Storage needs attention" : "Saved on this device"} title={storageError || "Saved on this device"}><Icon name={storageError ? "saveError" : "saved"} size={13}/><span>{storageError ? "Storage needs attention" : "Saved locally"}</span></span>;
+  const storageSize = storage ? formatBytes(storage.usage).split(' ') : null;
+  const saveStatus = <span className={styles.saveState} role="status" data-error={Boolean(storageError)} aria-label={storageError ? "Storage needs attention" : "Saved on this device"} title={storageError || "All changes saved on this device"}>{storageError ? <Icon name="saveError" size={13}/> : <i aria-hidden="true"/>}<span>{storageError ? "Needs attention" : "Saved"}</span></span>;
   const storageStatus = <div className={styles.storageSummary} data-error={Boolean(storageError)}>
-    <div className={styles.storageCopy}>{saveStatus}<small><Icon name="deviceStorage" size={12}/>On this device</small></div>
-    {storage && <span className={styles.storageUsage} aria-label={`${formatBytes(storage.usage)} used`}>{formatBytes(storage.usage)}<small>stored</small></span>}
+    <span className={styles.storageLabel}>Local storage</span>
+    {storageSize && <span className={styles.storageUsage} aria-label={`${formatBytes(storage.usage)} used`}><strong>{storageSize[0]}</strong><span>{storageSize[1]} used</span></span>}
+    <svg className={styles.storageArtwork} viewBox="0 0 56 56" fill="none" aria-hidden="true" focusable="false">
+      <path d="m7 30 21-12 21 12v9L28 51 7 39Z" fill="#785bb5"/>
+      <path d="m28 42 21-12v9L28 51Z" fill="#513876"/>
+      <path d="m7 30 21-12 21 12-21 12Z" fill="#ad8fdf"/>
+      <path d="m7 17 21-12 21 12v10L28 39 7 27Z" fill="#9a77d4"/>
+      <path d="m28 29 21-12v10L28 39Z" fill="#7250a7"/>
+      <path d="m7 17 21-12 21 12-21 12Z" fill="#d0b6ff"/>
+      <path d="m7 17 21 12 21-12M28 29v10" stroke="#efe4ff" strokeOpacity=".4"/>
+      <path d="m17 17 11-6 11 6-11 6Z" fill="#a486d0"/>
+      <path d="m35 29 7-4" stroke="#ddccfa" strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="42" cy="36" r="1.6" fill="#a6f0d6"/>
+    </svg>
+    <div className={styles.storageFooter}><span>On this device</span>{saveStatus}</div>
   </div>;
   useEffect(() => { let active = true; getStorageEstimate().then(value => { if (active) setStorage(value); }).catch(() => {}); return () => { active = false; }; }, [projects, deletedProjects]);
   useLayoutEffect(() => {

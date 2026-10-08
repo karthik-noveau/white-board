@@ -19,10 +19,10 @@ export default function WorkspaceLayout({ projects, deletedProjects, storageErro
   const [transfer, setTransfer] = useState(null);
   const backUp = async () => { if (backupBusy) return; setBackupBusy(true); try { await onBackup(); } finally { setBackupBusy(false); } };
   const saveStatus = <span className={styles.saveState} role="status" data-error={Boolean(storageError)} aria-label={storageError ? "Storage needs attention" : "Saved on this device"} title={storageError || "Saved on this device"}><Icon name={storageError ? "saveError" : "saved"} size={13}/><span>{storageError ? "Storage needs attention" : "Saved locally"}</span></span>;
-  const storageStatus = <>
-    <span className={styles.storageIcon} data-error={Boolean(storageError)} aria-hidden="true"><Icon name={storageError ? "saveError" : "deviceStorage"} size={18}/></span>
-    <div className={styles.storageCopy}>{saveStatus}<small>{storage ? `${formatBytes(storage.usage)} on this device` : "Stored on this device"}</small></div>
-  </>;
+  const storageStatus = <div className={styles.storageSummary} data-error={Boolean(storageError)}>
+    <div className={styles.storageCopy}>{saveStatus}<small><Icon name="deviceStorage" size={12}/>On this device</small></div>
+    {storage && <span className={styles.storageUsage} aria-label={`${formatBytes(storage.usage)} used`}>{formatBytes(storage.usage)}<small>stored</small></span>}
+  </div>;
   useEffect(() => { let active = true; getStorageEstimate().then(value => { if (active) setStorage(value); }).catch(() => {}); return () => { active = false; }; }, [projects, deletedProjects]);
   useLayoutEffect(() => {
     const page = homeRef.current, sidebar = sidebarRef.current;
@@ -51,9 +51,10 @@ export default function WorkspaceLayout({ projects, deletedProjects, storageErro
     <input ref={fileInput} className={styles.fileInput} type="file" accept={backupFiles.accept} aria-label="Import board file" onChange={event => { const file = event.target.files?.[0]; if (file) onImport(file); event.target.value = ""; }}/>
     <aside ref={sidebarRef} className={styles.sidebar}>
       <p className={styles.navLabel}>YOUR LIBRARY</p>
-      <nav aria-label="Workspace"><NavLink to="/projects" end className={({ isActive }) => (isActive || pathname.startsWith("/projects/folders/")) ? styles.activeNav : ""}><Icon name="grid"/><span>Projects</span><small>{projects.length}</small></NavLink><NavLink to="/projects/favorites" className={({ isActive }) => isActive ? styles.activeNav : ""}><Icon name="star"/><span>Favorites</span></NavLink><NavLink to="/projects/trash" className={({ isActive }) => isActive ? styles.activeNav : ""}><Icon name="trash"/><span>Trash</span>{deletedProjects.length > 0 && <small>{deletedProjects.length}</small>}</NavLink>
-      <span className={styles.navDivider} aria-hidden="true"/>
+      <nav aria-label="Workspace"><NavLink to="/projects" end className={({ isActive }) => (isActive || pathname.startsWith("/projects/folders/")) ? styles.activeNav : ""}><Icon name="grid"/><span>Projects</span><small>{projects.length}</small></NavLink><NavLink to="/projects/favorites" className={({ isActive }) => isActive ? styles.activeNav : ""}><Icon name="star"/><span>Favorites</span></NavLink>
       <NavLink className={({ isActive }) => `${styles.templateNav} ${isActive ? styles.activeNav : ""}`} to={workspaceTemplatesPath}><Icon name="template"/><span className={styles.templateLabel}>Template library</span><span className={styles.templateCompactLabel}>Templates</span><small>{templates.length}</small></NavLink>
+      <span className={styles.navDivider} aria-hidden="true"/>
+      <NavLink to="/projects/trash" className={({ isActive }) => `${styles.trashNav} ${isActive ? styles.activeNav : ""}`}><Icon name="trash"/><span>Trash</span>{deletedProjects.length > 0 && <small>{deletedProjects.length}</small>}</NavLink>
       </nav>
       <div className={styles.sidebarNote}><Icon name="spark" size={27}/><span>A little room<br/>for a big idea.</span><p>Make connections.<br/>See where they take you.</p>{pathname === "/projects" && <button onClick={() => onCreate()}>Make something new<Icon name="forward" size={14}/></button>}</div>
       <div className={styles.localStatus}>{storageStatus}</div>

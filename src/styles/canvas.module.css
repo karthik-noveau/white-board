@@ -646,7 +646,11 @@
   .titleBlock input{width:100%;min-width:0;max-width:100%;height:44px;padding:0 4px;font-size:var(--nova-text-md);text-overflow:ellipsis}
   .header .historyControls{gap:0;margin:0;display:flex}
   .header .iconButton,.header .historyControls .iconButton,.header .share{display:grid;place-items:center;flex:none;width:44px;min-width:44px;height:44px;margin:0;padding:0;border-radius:10px}
-  .header .share svg{width:19px;height:19px}
+  .header .share{position:relative;isolation:isolate;border:0;background:transparent;color:var(--nova-text);box-shadow:none}
+  .header .share::before{content:"";position:absolute;z-index:-1;inset:4px;border:1px solid var(--nova-border);border-radius:9px;background:var(--nova-surface)}
+  .header .share:hover,.header .share:focus-visible{background:transparent;color:var(--nova-primary);box-shadow:none}
+  .header .share:is(:hover,:focus-visible,:active)::before{border-color:var(--nova-primary-border);background:var(--nova-primary-soft)}
+  .header .share svg{width:18px;height:18px}
   .mobileMore{display:block;position:relative}
   .stage{inset:var(--board-header) 0 0;touch-action:none}
   .toolbar{left:50%;right:auto;top:calc(var(--board-header) + 8px);bottom:auto;transform:translateX(-50%);width:max-content;max-width:calc(100% - 16px);height:auto;padding:5px;display:flex;flex-direction:row;flex-wrap:nowrap;gap:2px;border-radius:13px;overflow:visible}
@@ -906,6 +910,7 @@
   .app .outlineRow>button:not(.outlineChoose){width:44px;min-height:44px;opacity:1}
 }
 .toolbar .labeledTool>span,.globalStyleRail button>span{font-size:var(--nova-text-sm);line-height:1.4}
+.compactToolLabel{display:none}
 .selectionBar button,.edgeBar,.edgeBar button{font-size:var(--nova-text-sm);line-height:1.4}
 .branchStyleHint{font-size:var(--nova-text-xs);line-height:1.5;padding:6px 10px;color:var(--nova-muted)}
 .app .globalStyleDock .segmented button{height:auto;min-height:36px;font-size:var(--nova-text-sm)}
@@ -1050,6 +1055,7 @@
 .selectionBarActions>.selectionAction{display:grid;place-items:center;flex:none;width:40px;height:36px;padding:0;line-height:0}
 .selectionBarActions>.selectionAction>svg{width:18px;height:18px}
 .selectionBarActions>.mobileSelectionAction{display:none}
+.selectionBarActions>.selectionMore,.selectionOverflowMenu{display:none}
 .selectionBarActions>button[aria-label="Delete"]{color:var(--nova-muted)}
 .selectionBarActions>button[aria-label="Delete"]:hover:not(:disabled){color:#b34a53;background:var(--nova-danger-soft,#fff1f2)}
 .contextStyleDock .globalStyleRail{display:flex;align-items:center;flex-direction:row;flex-wrap:wrap;width:max-content;max-width:100%;padding:6px;gap:4px;overflow:visible}
@@ -1097,20 +1103,37 @@
   .stage:has(.contextStyleDock) .zoom{display:none}
 }
 
-/* Keep the canvas usable on phones: scope above a single scrollable tools row. */
+/* Keep every primary action visible on phones; secondary actions use More. */
 @media(max-width:760px),(max-height:500px) and (pointer:coarse){
   .app{--board-header:calc(60px + env(safe-area-inset-top));}
   .header{height:var(--board-header);}
   .stage{top:var(--board-header);}
+  .toolbar{width:min(304px,calc(100% - 24px));max-width:none;padding:4px;gap:4px;border-color:#e3e1eb;border-radius:12px;background:var(--nova-surface);box-shadow:0 4px 16px #29213e0a;}
+  .toolbar>div{flex:1 1 0;}
+  .toolbar button,.toolbar .labeledTool{width:100%;min-width:44px;height:48px;padding:5px 3px;gap:3px;border-radius:8px;transform:none;}
+  .toolbar button>svg{width:19px;height:19px;}
+  .toolbar button>span,.toolbar .labeledTool>span{display:block;font-size:11px;font-weight:500;line-height:15px;}
+  .toolbar .activeTool{background:var(--nova-primary-soft)!important;color:var(--nova-primary)!important;box-shadow:none;}
+  .toolbar button:focus-visible{outline-offset:-2px;}
   .selectionDock,.contextStyleDock{left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));width:auto;max-width:none;transform:none;}
   .selectionDock .selectionBar,.contextStyleDock .globalStyleRail{overflow:visible;touch-action:auto;}
   .scopeActionViewport{width:100%;min-width:0;}
-  .selectionBarActions,.branchBarActions{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x;scrollbar-width:thin;scroll-padding-inline:8px;}
+  .selectionBarActions,.branchBarActions{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;width:100%;overflow:visible;touch-action:manipulation;}
+  .selectionBarActions>button,.selectionBar .scopeStyleButton,.contextStyleDock .branchBarActions>.scopeStyleButton{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;min-width:0;height:48px;min-height:48px;padding:3px 2px;border:0;border-radius:8px;background:transparent;color:var(--nova-text);font:550 12px/16px var(--nova-font-family);}
+  .selectionBarActions>button>svg,.contextStyleDock .branchBarActions>.scopeStyleButton>svg{width:18px;height:18px;}
+  .selectionBarActions>.selectionAction,.selectionBarActions>.selectionSecondary,.selectionBarActions>.arrangeButton{display:none;}
   .selectionBarActions>.mobileEditAction{order:-1;background:var(--nova-primary-soft);color:var(--nova-primary);}
   .selectionBarActions>.selectionDone{display:none;}
-  .selectionBarActions>.toolbarActionSeparator{margin-inline:2px;}
-  .app .scopeAppearanceMenu,.app .contextStyleDock .globalPanel,.selectionDock>.arrangeMenu{left:0;right:0;top:calc(100% + 8px);bottom:auto;width:auto;max-width:100%;max-height:calc(var(--app-height,100dvh) - var(--board-header) - 148px);overflow-y:auto;transform:none;overscroll-behavior:contain;touch-action:pan-y;}
-  .zoom{bottom:calc(8px + env(safe-area-inset-bottom));}
+  .selectionBarActions>.selectionMore{display:flex;}
+  .selectionBarActions>.toolbarActionSeparator{display:none;}
+  .selectionBarActions>.selectionMore[aria-expanded="true"]{background:var(--nova-primary-soft);color:var(--nova-primary);}
+  .selectionOverflowMenu{position:absolute;z-index:55;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;padding:6px;border:1px solid var(--nova-border);border-radius:12px;background:var(--nova-surface);box-shadow:var(--nova-popover-shadow);}
+  .selectionOverflowMenu>button{display:flex;align-items:center;gap:8px;min-width:0;min-height:44px;padding:10px;border:0;border-radius:8px;background:transparent;color:var(--nova-text);font:500 12px/18px var(--nova-font-family);text-align:left;}
+  .selectionOverflowMenu>button:hover,.selectionOverflowMenu>button:focus-visible{background:var(--nova-primary-soft);color:var(--nova-primary);outline-offset:-2px;}
+  .selectionOverflowMenu>button:disabled{opacity:.4;cursor:default;}
+  .app .scopeAppearanceMenu,.app .contextStyleDock .globalPanel,.selectionDock>.arrangeMenu,.selectionOverflowMenu{left:0;right:0;top:calc(100% + 8px);bottom:auto;width:auto;max-width:100%;max-height:calc(var(--app-height,100dvh) - var(--board-header) - 148px);overflow-y:auto;transform:none;overscroll-behavior:contain;touch-action:pan-y;}
+  .zoom{top:auto;left:50%;right:auto;bottom:calc(8px + env(safe-area-inset-bottom));transform:translateX(-50%);}
+  .stage:has(.selectionDock) .zoom,.stage:has(.contextStyleDock) .zoom{display:flex;}
   .touchSelectionHint{top:auto;bottom:calc(68px + env(safe-area-inset-bottom));z-index:65;}
   .app .focusBar{top:auto;bottom:calc(72px + env(safe-area-inset-bottom));max-width:calc(100% - 16px);height:48px;}
   .focusBarIcon{width:32px;height:32px;}
@@ -1122,8 +1145,14 @@
   .header{display:grid;grid-template-columns:44px minmax(0,1fr) 88px 44px 44px;grid-template-rows:44px;padding-inline:max(8px,env(safe-area-inset-left));gap:4px;}
   .header .brand>b,.headerActions,.headerDivider,.headerSpacer,.header .exportButton,.header .share>span{display:none;}
   .header .share{width:44px;padding:0;}
-  .toolbar{top:calc(var(--board-header) + 8px);}
+  .toolbar{top:calc(var(--board-header) + 8px);width:54px;}
+  .toolbar>div{flex:none;}
+  .toolbar button>span,.toolbar .labeledTool>span{display:none;}
   .app .focusBar{bottom:calc(8px + env(safe-area-inset-bottom));max-width:calc(100% - 220px);}
+}
+@media(min-width:600px) and (max-height:500px) and (pointer:coarse){
+  .selectionDock .selectionBar,.contextStyleDock .globalStyleRail{flex-direction:row;align-items:center;}
+  .selectionDock .scopeActionViewport,.contextStyleDock .scopeActionViewport{flex:1;min-width:0;width:auto;}
 }
 @media(pointer:coarse){
   .selectionBarActions>button,.branchBarActions>button{min-height:44px;}

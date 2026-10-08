@@ -12,8 +12,13 @@
 @media(max-width:760px),(max-height:500px) and (pointer:coarse){.picker{width:100%;margin:0;padding:0 0 5px;border-right:0;border-bottom:1px solid var(--nova-border);gap:4px}.picker>button.option{flex:1;height:44px;min-height:44px;padding-inline:8px}}
 .picker>button.dismiss{display:none;}
 @media(max-width:760px),(max-height:500px) and (pointer:coarse){
-  .picker{gap:2px;}
-  .picker>button.option{gap:5px;padding-inline:6px;font-size:13px;}
+  .picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) 44px;gap:2px;}
+  .picker>button.option{width:100%;gap:5px;padding-inline:4px;font-size:12px;}
+  .picker>button.option>svg{width:16px;height:16px;}
+  .picker>button.option>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .picker>button.dismiss{display:grid;place-items:center;flex:none;width:44px;height:44px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--nova-muted);cursor:pointer;}
   .picker>button.dismiss:hover{background:var(--nova-surface-tint);color:var(--nova-primary);}
+}
+@media(min-width:600px) and (max-height:500px) and (pointer:coarse){
+  .picker{flex:none;width:44%;max-width:320px;padding:0 6px 0 0;border-bottom:0;border-right:1px solid var(--nova-border);}
 }

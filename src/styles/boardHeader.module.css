@@ -198,17 +198,17 @@
 }
 
 @media (max-width:760px),(max-height:500px) and (pointer:coarse) {
-  .identity { min-width:0;max-width:none;gap:var(--nova-space-3); }
-  .titleEditor { max-width:100%;font-size:var(--nova-text-md);gap:0;line-height:var(--nova-leading-ui); }
+  .identity { min-width:0;max-width:none;gap:4px; }
+  .titleEditor { flex:1;max-width:100%;font-size:var(--nova-text-md);gap:0;line-height:var(--nova-leading-ui); }
   .titleField { max-width:100%; }
-  .titleMeasure,.titleInput { height:36px;padding-block:10px;padding:5px 4px; }
-  .renameButton { width:44px;height:44px; }
-  .identity { gap:var(--nova-space-3); }
-  .saveStatus { width:24px;min-width:24px;padding:0;font-size:var(--nova-text-xs);gap:var(--nova-space-2); }
+  .titleMeasure,.titleInput { height:44px;padding:10px 4px; }
+  /* The title itself is editable; avoid a second target competing for space. */
+  .renameButton { display:none; }
+  .saveStatus { width:20px;min-width:20px;padding:0;gap:0;border-radius:8px;background:transparent; }
   .saveLabel { display:none; }
   .saveStatus[data-state="error"] { width:44px;min-height:44px; }
   .historyControls { position:static;transform:none;gap:0;margin:0;padding:0;border:0; }
-  .historyButton { width:40px;height:40px; }
+  .historyButton { width:44px;height:44px; }
 }
 
 @media (max-width:420px) {
@@ -220,11 +220,6 @@
   .savePulse::after { animation:none;opacity:.35; }
 }
 
-@media (max-width:760px),(max-height:500px) and (pointer:coarse) {
-  .identity { gap:4px; }
-  .titleMeasure,.titleInput { height:44px;padding:10px 4px; }
-  .historyButton { width:44px;height:44px; }
-}
 @media (min-width:761px) and (max-width:1100px) {
   .identity { flex:0 1 auto;min-width:0;max-width:440px; }
   .historyControls { position:static;transform:none; }

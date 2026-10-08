@@ -11,6 +11,7 @@ import BoardPreview from "./BoardPreview";
 import TextInputDialog from "./TextInputDialog";
 import ShareBoard from "./ShareBoard";
 import WorkspaceFolders from "./WorkspaceFolders";
+import ProjectSort from "./ProjectSort";
 import WorkspacePageIntro, { WorkspaceCreateButton } from "./WorkspacePageIntro";
 import styles from "../styles/home.module.css";
 
@@ -185,9 +186,7 @@ export default function Home({ projects, deletedProjects, storageError, onDismis
                 <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search projects…" aria-label="Search projects"/>
                 {query && <button className={styles.iconButton} aria-label="Clear search" onClick={() => setQuery("")}><Icon name="close" size={16}/></button>}
               </label>
-              <select aria-label="Sort projects" value={sort} onChange={event => setSort(event.target.value)}>
-                <option value="recent">Last edited</option><option value="name">Name A–Z</option><option value="oldest">Oldest first</option>
-              </select>
+              <ProjectSort value={sort} onChange={setSort}/>
               <div className={styles.viewToggle} role="group" aria-label="Project view">
                 <button type="button" className={styles.viewMode} aria-label="Grid view" title="Grid view" aria-pressed={view === "grid"} onClick={() => setView("grid")}><Icon name="grid" size={16}/></button>
                 <button type="button" className={styles.viewMode} aria-label="List view" title="List view" aria-pressed={view === "list"} onClick={() => setView("list")}><Icon name="textBulletedList" size={17}/></button>

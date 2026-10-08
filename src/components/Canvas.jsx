@@ -408,8 +408,8 @@ function Toolbar({ active, onActive, onAdd }) {
   ];
   return <div data-keyboard-toolbar className={styles.toolbar} aria-label="Board tools">
     {tools.map(([tool,label,text,title],index)=><div key={tool} className={index===2?styles.toolDivider:""}>
-      <button className={`${tool==="box"||tool==="link"?styles.labeledTool:""} ${active===tool?styles.activeTool:""}`} onClick={()=>tool==="box"?onAdd(tool):onActive(tool)} aria-label={label} data-label={label} data-tour={`tool-${tool}`} title={title}>
-        <Icon name={tool}/>{(tool==="box"||tool==="link")&&<span>{text}</span>}
+      <button className={`${tool==="box"||tool==="link"?styles.labeledTool:""} ${active===tool?styles.activeTool:""}`} onClick={()=>tool==="box"?onAdd(tool):onActive(tool)} aria-label={label} aria-pressed={tool==="box"?undefined:active===tool} data-label={label} data-tour={`tool-${tool}`} title={title}>
+        <Icon name={tool}/><span className={tool==="cursor"||tool==="hand"?styles.compactToolLabel:undefined}>{text}</span>
       </button>
     </div>)}
   </div>;
@@ -494,6 +494,7 @@ function SelectionBar({ node, selectionCount, grouped, locked, allLocked, scopeP
   const [menu,setMenu]=useState(null),menuRef=useRef(null),triggerRef=useRef(null);
   useEffect(()=>{
     if(!menu)return;
+    if(menu==="more")menuRef.current?.querySelector('[role="menuitem"]:not(:disabled)')?.focus();
     const close=event=>{if(!menuRef.current?.contains(event.target))setMenu(null)};
     const escape=event=>{if(event.key==="Escape"){event.stopPropagation();setMenu(null);triggerRef.current?.focus()}};
     document.addEventListener("pointerdown",close);document.addEventListener("keydown",escape,true);
@@ -509,18 +510,29 @@ function SelectionBar({ node, selectionCount, grouped, locked, allLocked, scopeP
       <span className={styles.toolbarActionSeparator} aria-hidden="true"/>
       <button className={`${styles.mobileSelectionAction} ${styles.mobileEditAction}`} disabled={locked||selectionCount>1} onClick={onEdit}><Icon name="text" size={18}/>Edit</button>
       {selectionCount>1&&<button disabled={locked||grouped} className={styles.arrangeButton} aria-expanded={menu==="arrange"} title={grouped?"Ungroup shapes before arranging":"Align and distribute"} onClick={event=>toggle("arrange",event)}><Icon name="arrange" size={15}/>Arrange</button>}
-      {selectionCount>1&&!grouped&&<button disabled={locked} title="Group selected shapes" onClick={onGroup}>Group</button>}
-      {grouped&&<button disabled={locked} title="Ungroup selected shapes" onClick={onUngroup}>Ungroup</button>}
+      {selectionCount>1&&!grouped&&<button className={styles.selectionSecondary} disabled={locked} title="Group selected shapes" onClick={onGroup}>Group</button>}
+      {grouped&&<button className={styles.selectionSecondary} disabled={locked} title="Ungroup selected shapes" onClick={onUngroup}>Ungroup</button>}
       <button className={styles.mobileSelectionAction} disabled={locked||selectionCount>1} onClick={onAddChild}><Icon name="plus" size={18}/>Branch</button>
       <button className={styles.selectionAction} title="Focus on this branch" aria-label="Focus on this branch" onClick={onFocus}><Icon name="focus" size={18}/></button>
       <button className={styles.selectionAction} title="Comments" aria-label="Comments" onClick={onComments}><Icon name="comment" size={18}/></button>
       <button className={`${styles.selectionAction} ${allLocked?styles.lockedAction:""}`} title={allLocked?"Unlock selection":"Lock selection"} aria-label={allLocked?"Unlock selection":"Lock selection"} onClick={onLock}><Icon name={allLocked?"unlock":"lock"} size={20}/></button>
       <button className={styles.selectionAction} title="Duplicate" aria-label="Duplicate" onClick={onDuplicate}><Icon name="duplicate" size={20}/></button>
       <button className={styles.selectionAction} disabled={locked} title="Delete" aria-label="Delete" onClick={onDelete}><Icon name="trash" size={19}/></button>
+      <button className={styles.selectionMore} aria-label="More card actions" aria-expanded={menu==="more"} aria-haspopup="menu" onClick={event=>toggle("more",event)}><Icon name="more" size={18}/><span>More</span></button>
       <button className={`${styles.mobileSelectionAction} ${styles.selectionDone}`} onClick={onDone} aria-label="Deselect shapes">Done</button>
       </div></div>
     </div>
     <StyleScopeSummary {...scopeProps} hidden={Boolean(menu)}/>
+    {menu==="more"&&<div data-keyboard-toolbar className={styles.selectionOverflowMenu} role="menu" aria-label="More card actions" onKeyDown={event=>{
+      if(!["ArrowDown","ArrowUp"].includes(event.key))return;
+      event.preventDefault();event.stopPropagation();
+      const buttons=[...event.currentTarget.querySelectorAll('button:not(:disabled)')],index=buttons.indexOf(document.activeElement);
+      buttons[(index+(event.key==="ArrowDown"?1:-1)+buttons.length)%buttons.length]?.focus();
+    }}>
+      {selectionCount>1&&<button role="menuitem" disabled={locked||grouped} onClick={()=>setMenu("arrange")}><Icon name="arrange" size={17}/>Arrange</button>}
+      {(selectionCount>1||grouped)&&<button role="menuitem" disabled={locked} onClick={()=>{setMenu(null);(grouped?onUngroup:onGroup)()}}><Icon name="group" size={17}/>{grouped?"Ungroup":"Group"}</button>}
+      {[["focus","Focus on branch",onFocus,false],["comment","Comments",onComments,false],[allLocked?"unlock":"lock",allLocked?"Unlock selection":"Lock selection",onLock,false],["duplicate","Duplicate",onDuplicate,false],["trash","Delete",onDelete,locked]].map(([icon,label,run,disabled])=><button key={label} role="menuitem" disabled={disabled} onClick={()=>{setMenu(null);triggerRef.current?.focus();run()}}><Icon name={icon} size={17}/>{label}</button>)}
+    </div>}
     <MotionPresence present={menu==="shape"||menu==="color"} kind="menu"><div className={styles.scopeAppearanceMenu} aria-label={`${menu==="shape"?"Shape":"Color"} settings`}><div className={styles.popoverHeading}>{menu==="shape"?"Shape":"Color"} · {selectionCount>1?"selected cards":"selected card"}</div><AppearanceOptions section={menu} settings={node} disabled={locked} onChange={(key,value)=>{if(key==="shape"){onShape(value);setMenu(null)}else onColor(value)}}/></div></MotionPresence>
     <MotionPresence present={menu==="arrange"} kind="menu"><div className={styles.arrangeMenu} aria-label="Arrange shapes"><div className={styles.popoverHeading}>Arrange shapes</div>{[["tree","Smart tree layout"],["grid","Tidy into a grid"],["left","Align left"],["center","Align centers"],["right","Align right"],["top","Align top"],["middle","Align middles"],["bottom","Align bottom"],["horizontal","Distribute horizontally"],["vertical","Distribute vertically"]].map(([value,label])=><button key={value} className={value==="tree"||value==="grid"?styles.tidyAction:""} disabled={(value==="horizontal"||value==="vertical")&&selectionCount<3} onClick={()=>{onArrange(value);setMenu(null)}}>{(value==="tree"||value==="grid")&&<Icon name="layout" size={18}/>}<span>{label}</span></button>)}</div></MotionPresence>
   </div>;
@@ -773,9 +785,22 @@ export default function Canvas({project,backTo="/projects",onRename,onSave,onSav
     const bounds=items.reduce((area,node)=>{const size=nodeSize(node);return{left:Math.min(area.left,node.x),top:Math.min(area.top,node.y),right:Math.max(area.right,node.x+size.width),bottom:Math.max(area.bottom,node.y+size.height)}},{left:Infinity,top:Infinity,right:-Infinity,bottom:-Infinity});
     const compact=window.matchMedia("(max-width:760px), (max-height:500px) and (pointer:coarse)").matches;
     const landscape=compact&&rect.height<440&&rect.width>rect.height;
-    const padding=compact?{left:landscape?80:24,right:24,top:76,bottom:landscape?80:148}:{left:120,right:120,top:120,bottom:120};
+    const padding=compact?{left:24,right:24,top:24,bottom:24}:{left:120,right:120,top:120,bottom:120};
+    if(compact){
+      const tools=stageRef.current.querySelector('[data-scope-toolbar]')||stageRef.current.parentElement?.querySelector('[aria-label="Board tools"]');
+      const toolsRect=tools?.getBoundingClientRect();
+      if(toolsRect?.height){
+        if(landscape&&!tools.hasAttribute('data-scope-toolbar'))padding.left=Math.max(padding.left,toolsRect.right-rect.left+16);
+        else padding.top=Math.max(padding.top,toolsRect.bottom-rect.top+20);
+      }
+      const navigation=stageRef.current.querySelector('[data-tour="navigation"]')?.getBoundingClientRect();
+      if(navigation?.height)padding.bottom=Math.max(padding.bottom,rect.bottom-navigation.top+20);
+    }
     const focusBar=stageRef.current.querySelector("[data-branch-focus]")?.getBoundingClientRect();
-    if(focusBar)padding.top=Math.max(padding.top,focusBar.bottom-rect.top+20);
+    if(focusBar){
+      if(compact&&focusBar.top>rect.top+rect.height/2)padding.bottom=Math.max(padding.bottom,rect.bottom-focusBar.top+20);
+      else padding.top=Math.max(padding.top,focusBar.bottom-rect.top+20);
+    }
     const width=Math.max(80,rect.width-padding.left-padding.right),height=Math.max(80,rect.height-padding.top-padding.bottom);
     const candidate=Math.max(.01,Math.min(maxScale,width/Math.max(1,bounds.right-bounds.left),height/Math.max(1,bounds.bottom-bounds.top)));
     const scale=Math.min(candidate,snapScale(candidate));

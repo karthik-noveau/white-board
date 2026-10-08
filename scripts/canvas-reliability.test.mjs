@@ -609,3 +609,54 @@ test('URL import previews without writes, keeps failures open, and prevents dupl
     assert.equal(closed, 1);
   } finally { await act(async () => root.unmount()); }
 });
+
+test('mobile Fit centers the board in the space between selection and navigation controls', async () => {
+  const originalRect = HTMLElement.prototype.getBoundingClientRect, originalMedia = window.matchMedia;
+  const rect = (left, top, width, height) => ({ x: left, y: top, left, top, width, height, right: left + width, bottom: top + height });
+  window.matchMedia = query => ({ matches: query.includes('760px'), addEventListener() {}, removeEventListener() {} });
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    if (this.matches('[data-scope-toolbar]')) return rect(8, 68, 344, 115);
+    if (this.matches('[data-tour="navigation"]')) return rect(43, 680, 274, 52);
+    if (this.matches('[aria-label="Board tools"]')) return rect(40, 68, 280, 62);
+    return rect(0, 60, 360, 680);
+  };
+  let root;
+  try {
+    root = await mountCanvas();
+    await click(document.querySelector('[data-export-node]'));
+    await click(document.querySelector('[aria-label="Center and fit board"]'));
+    const node = document.querySelector('[data-export-node]');
+    const [panX, panY, scale] = node.parentElement.style.transform.match(/-?\d+(?:\.\d+)?/g).map(Number);
+    const [x, y] = node.style.transform.match(/-?\d+(?:\.\d+)?/g).map(Number);
+    assert.ok(Math.abs(panX + (x + parseFloat(node.style.width) / 2) * scale - 180) <= 1);
+    assert.ok(Math.abs(60 + panY + (y + parseFloat(node.style.height) / 2) * scale - (183 + 680) / 2) <= 1);
+  } finally {
+    if (root) await act(async () => root.unmount());
+    HTMLElement.prototype.getBoundingClientRect = originalRect; window.matchMedia = originalMedia;
+  }
+});
+
+test('More card actions preserves duplication, locking, and keyboard focus', async () => {
+  const root = await mountCanvas();
+  try {
+    await click(document.querySelector('[data-export-node]'));
+    await click(document.querySelector('[aria-label="More card actions"]'));
+    const menu = () => document.querySelector('[role="menu"][aria-label="More card actions"]');
+    const action = label => [...menu().querySelectorAll('button')].find(button => button.textContent === label);
+    assert.equal(document.activeElement.textContent, 'Focus on branch');
+    await click(action('Duplicate'));
+    assert.equal(document.querySelectorAll('[data-export-node]').length, 2);
+    assert.equal(menu(), null);
+    await click(document.querySelector('[aria-label="More card actions"]'));
+    await click(action('Lock selection'));
+    assert.equal(menu(), null);
+    await click(document.querySelector('[aria-label="More card actions"]'));
+    assert.ok(action('Unlock selection'));
+    assert.equal(action('Delete').disabled, true);
+    await click(action('Unlock selection'));
+    await click(document.querySelector('[aria-label="More card actions"]'));
+    await act(async () => document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    assert.equal(menu(), null);
+    assert.equal(document.activeElement.getAttribute('aria-label'), 'More card actions');
+  } finally { await act(async () => root.unmount()); }
+});
